@@ -1,0 +1,24 @@
+[gd_scene load_steps=3 format=3 uid="uid://cfluxdrop0001"]
+
+[ext_resource type="Script" path="res://scripts/objects/FluidDroplet.gd" id="1_drop"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_drop"]
+radius = 7.0
+
+[node name="FluidDroplet" type="RigidBody2D"]
+collision_layer = 2
+collision_mask = 13
+mass = 0.65
+gravity_scale = 1.15
+continuous_cd = 1
+contact_monitor = true
+max_contacts_reported = 4
+script = ExtResource("1_drop")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape_drop")
+
+[node name="PointLight2D" type="PointLight2D" parent="."]
+color = Color(0.0235294, 0.713726, 0.831373, 1)
+energy = 1.15
+texture_scale = 1.6

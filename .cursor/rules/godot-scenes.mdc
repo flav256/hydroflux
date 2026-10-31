@@ -1,0 +1,13 @@
+---
+description: Godot scene composition for HydroFlux
+globs: "**/*.tscn"
+alwaysApply: false
+---
+
+# Scenes
+
+- Instance `scenes/objects/*.tscn` from levels. Keep Level_00 as layout + markers + instance overrides.
+- Cavern: `StaticBody2D` → `CollisionPolygon2D` with a child `Polygon2D` sharing the same points.
+- Main run scene is `scenes/ui/MainMenu.tscn`. Levels remain F6-playable.
+- Particles: `CPUParticles2D` for dust. Do not add GPUParticles until a shader pass exists.
+- After adding a new object scene, register it in `GameManager.LEVEL_SCENES` only if it is a loadable level.

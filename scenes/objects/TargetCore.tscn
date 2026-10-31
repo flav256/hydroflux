@@ -1,0 +1,19 @@
+[gd_scene load_steps=3 format=3 uid="uid://cfluxtarg0001"]
+
+[ext_resource type="Script" path="res://scripts/objects/TargetCore.gd" id="1_target"]
+
+[sub_resource type="CircleShape2D" id="CircleShape_target_area"]
+radius = 38.0
+
+[node name="TargetCore" type="Area2D"]
+collision_layer = 8
+collision_mask = 2
+script = ExtResource("1_target")
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+shape = SubResource("CircleShape_target_area")
+
+[node name="CoreGlowLight" type="PointLight2D" parent="."]
+color = Color(0.0235294, 0.713726, 0.831373, 1)
+energy = 1.8
+texture_scale = 2.4

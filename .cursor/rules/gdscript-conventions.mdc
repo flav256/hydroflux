@@ -1,0 +1,14 @@
+---
+description: GDScript 4 conventions for HydroFlux
+globs: "**/*.gd"
+alwaysApply: false
+---
+
+# GDScript
+
+- Typed Godot 4: `bool`, `float`, `Vector2`. Never `boolean` or `number` (Gemini POC leftovers).
+- Use `get_node_or_null`, `clampf` / `lerpf` / `maxf`, `class_name` only on reusable objects.
+- Convert pointer events with `InputManager.event_local_position` / `event_world_position`.
+- Tune feel via `@export` on the scene instance, not new constants in level scripts.
+- Signals for cross-node events (`tendril_released`, `core_activated`). Avoid frame polling of sibling state.
+- Keep `_draw()` cheap (circles, arcs). Spawned water uses `FluidDroplet.tscn`, never `new()` without a scene.

@@ -1,0 +1,14 @@
+---
+description: HydroFlux architecture — modules, layers, POC vs production
+alwaysApply: true
+---
+
+# HydroFlux architecture
+
+- Godot 4.3 GDScript, mobile `gl_compatibility`. Aesthetic: `#09090b` caverns, `#06b6d4` fluid.
+- Autoloads: `GameManager` (routing/saves), `AudioController` (cues), `InputManager` (viewport → world). No gameplay in autoloads.
+- Objects own physics: `ElasticTendril`, `FluidDroplet`, `TargetCore`. Levels only sequence phases.
+- Collision: 1 cavern, 2 droplets, 3 tendril, 4 target. Droplet mask includes 1+3+4.
+- `poc/gemini-level-0` is archive. Edit `res://scripts` and `res://scenes` only.
+- Compose PackedScenes; do not paste object scripts into level `.tscn` files.
+- Docs live in `docs/BLUEPRINT.md`, `CODING_STRATEGY.md`, `ROADMAP.md` — update them when systems change.

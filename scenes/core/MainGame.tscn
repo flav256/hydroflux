@@ -1,0 +1,8 @@
+[gd_scene format=3 uid="uid://cfluxmain0001"]
+
+[node name="MainGame" type="Node"]
+
+[node name="Note" type="Label" parent="."]
+offset_right = 640.0
+offset_bottom = 40.0
+text = "Boot via MainMenu. GameManager routes levels."

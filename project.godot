@@ -1,0 +1,51 @@
+; Engine configuration file.
+; HydroFlux — atmospheric physics-based fluid puzzler (Godot 4.3+)
+
+config_version=5
+
+[application]
+
+config/name="HydroFlux"
+config/description="Atmospheric physics-based fluid puzzler inspired by Contre-Jour"
+config/version="0.1.0"
+run/main_scene="res://scenes/ui/MainMenu.tscn"
+config/features=PackedStringArray("4.3", "GL Compatibility", "Mobile")
+config/icon="res://icon.svg"
+
+[autoload]
+
+GameManager="*res://scripts/managers/GameManager.gd"
+AudioController="*res://scripts/managers/AudioController.gd"
+InputManager="*res://scripts/managers/InputManager.gd"
+
+[display]
+
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/stretch/aspect="keep"
+window/handheld/orientation=4
+
+[input_devices]
+
+pointing/emulate_touch_from_mouse=true
+
+[layer_names]
+
+2d_physics/layer_1="Cavern_Geometry"
+2d_physics/layer_2="Fluid_Droplets"
+2d_physics/layer_3="Elastic_Tendril"
+2d_physics/layer_4="Target_Receptacle"
+
+[physics]
+
+2d/default_gravity=550.0
+2d/default_gravity_vector=Vector2(0, 1)
+2d/default_linear_damp=0.08
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+environment/defaults/default_clear_color=Color(0.0352941, 0.0352941, 0.0431373, 1)
+textures/canvas_textures/default_texture_filter=0

@@ -1,0 +1,125 @@
+[gd_scene load_steps=10 format=3 uid="uid://hydrofluxlvl00"]
+
+[ext_resource type="Script" path="res://scripts/levels/Level_00.gd" id="1_lvl"]
+[ext_resource type="PackedScene" path="res://scenes/objects/FluidDroplet.tscn" id="2_droplet"]
+[ext_resource type="PackedScene" path="res://scenes/objects/ElasticTendril.tscn" id="3_tendril"]
+[ext_resource type="PackedScene" path="res://scenes/objects/TargetCore.tscn" id="4_target"]
+[ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
+
+[sub_resource type="Environment" id="Environment_glow"]
+background_mode = 3
+glow_enabled = true
+glow_levels/1 = 1.0
+glow_levels/2 = 0.8
+glow_levels/3 = 0.5
+glow_intensity = 1.4
+glow_strength = 1.15
+glow_bloom = 0.4
+glow_blend_mode = 0
+
+[sub_resource type="Gradient" id="Gradient_ambient_dust"]
+colors = PackedColorArray(0.02, 0.71, 0.83, 0.6, 0.02, 0.71, 0.83, 0)
+
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundary_floor"]
+
+[node name="Level_00" type="Node2D"]
+script = ExtResource("1_lvl")
+droplet_scene = ExtResource("2_droplet")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_glow")
+
+[node name="CanvasModulate" type="CanvasModulate" parent="."]
+color = Color(0.04, 0.04, 0.05, 1)
+
+[node name="Background" type="ColorRect" parent="."]
+z_index = -10
+offset_right = 1280.0
+offset_bottom = 720.0
+color = Color(0.0352941, 0.0352941, 0.0431373, 1)
+
+[node name="NebulaGlow" type="ColorRect" parent="."]
+modulate = Color(0.0235294, 0.713726, 0.831373, 0.08)
+z_index = -9
+offset_left = 480.0
+offset_top = 80.0
+offset_right = 860.0
+offset_bottom = 360.0
+
+[node name="CavernGeometry" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 2
+
+[node name="CeilingStalactite" type="CollisionPolygon2D" parent="CavernGeometry"]
+polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
+
+[node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CeilingStalactite"]
+color = Color(0.08, 0.09, 0.11, 1)
+polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
+
+[node name="Phase1Basin" type="CollisionPolygon2D" parent="CavernGeometry"]
+polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
+
+[node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/Phase1Basin"]
+color = Color(0.08, 0.09, 0.11, 1)
+polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
+
+[node name="CentralBarrier" type="CollisionPolygon2D" parent="CavernGeometry"]
+polygon = PackedVector2Array(480, 720, 500, 340, 520, 330, 540, 340, 560, 720)
+
+[node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CentralBarrier"]
+color = Color(0.06, 0.07, 0.08, 1)
+polygon = PackedVector2Array(480, 720, 500, 340, 520, 330, 540, 340, 560, 720)
+
+[node name="RightPlatform" type="CollisionPolygon2D" parent="CavernGeometry"]
+polygon = PackedVector2Array(840, 720, 860, 480, 1080, 480, 1120, 720)
+
+[node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/RightPlatform"]
+color = Color(0.08, 0.09, 0.11, 1)
+polygon = PackedVector2Array(840, 720, 860, 480, 1080, 480, 1120, 720)
+
+[node name="FloorKill" type="StaticBody2D" parent="."]
+position = Vector2(640, 780)
+collision_layer = 1
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="FloorKill"]
+shape = SubResource("WorldBoundary_floor")
+
+[node name="Spawner_Phase1" type="Marker2D" parent="."]
+position = Vector2(275, 160)
+
+[node name="ElasticTendril" parent="." instance=ExtResource("3_tendril")]
+position = Vector2(340, 430)
+anchor_left = Vector2(-90, 0)
+anchor_right = Vector2(100, 0)
+max_stretch_distance = 120.0
+spring_stiffness = 220.0
+launch_force_multiplier = 9.2
+
+[node name="TargetCore" parent="." instance=ExtResource("4_target")]
+position = Vector2(960, 440)
+required_fluid_volume = 1
+
+[node name="Camera2D" type="Camera2D" parent="."]
+position = Vector2(640, 360)
+position_smoothing_enabled = true
+position_smoothing_speed = 3.5
+
+[node name="AmbientParticles" type="CPUParticles2D" parent="."]
+position = Vector2(640, 360)
+amount = 45
+lifetime = 6.0
+preprocess = 3.0
+emission_shape = 3
+emission_rect_extents = Vector2(640, 360)
+direction = Vector2(0, -1)
+spread = 30.0
+gravity = Vector2(0, -5)
+initial_velocity_min = 6.0
+initial_velocity_max = 18.0
+scale_amount_min = 1.5
+scale_amount_max = 3.0
+color_ramp = SubResource("Gradient_ambient_dust")
+
+[node name="HUD" parent="." instance=ExtResource("5_hud")]

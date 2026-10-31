@@ -12,7 +12,7 @@ signal droplet_launched(droplet: Node, velocity: Vector2)
 @export var anchor_left: Vector2 = Vector2(-140.0, 0.0)
 @export var anchor_right: Vector2 = Vector2(140.0, 0.0)
 @export var rest_sag: float = 26.0
-@export var grab_radius: float = 36.0
+@export var grab_radius: float = 52.0
 @export var max_stretch_distance: float = 135.0
 @export var membrane_radius: float = 14.0
 
@@ -37,6 +37,9 @@ var grab_offset: Vector2 = Vector2.ZERO
 var curve_points: PackedVector2Array = PackedVector2Array()
 var prev_curve_points: PackedVector2Array = PackedVector2Array()
 var seated_drops: Array[FluidDroplet] = []
+var seat_u: Dictionary = {}
+var seat_speed: Dictionary = {}
+var drop_is_seated: bool = false
 
 @onready var line_2d: Line2D = get_node_or_null("Line2D")
 @onready var snap_audio: AudioStreamPlayer2D = get_node_or_null("SnapAudio")
@@ -45,44 +48,63 @@ var seated_drops: Array[FluidDroplet] = []
 func _ready() -> void:
 	# Run after rigid bodies so the membrane can catch them the same frame.
 	get_tree().physics_frame.connect(_on_physics_frame)
+	z_index = 5
 	rest_midpoint = (anchor_left + anchor_right) * 0.5 + Vector2(0.0, rest_sag)
 	current_midpoint = rest_midpoint
+	if line_2d:
+		line_2d.visible = false
 	_rebuild_curve()
 	update_visual_curve()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event is InputEventScreenTouch:
-		var touch := event as InputEventScreenTouch
-		var local_pos := InputManager.event_local_position(touch, self)
-		if touch.pressed:
-			if not is_dragged and _distance_to_curve(local_pos) <= grab_radius:
-				_begin_drag(local_pos, touch.index)
-		elif is_dragged and touch.index == active_touch_index:
-			_release_tendril()
-	elif event is InputEventScreenDrag and is_dragged:
-		var drag := event as InputEventScreenDrag
-		if drag.index == active_touch_index:
-			_handle_drag(InputManager.event_local_position(drag, self) + grab_offset)
-	elif event is InputEventMouseButton:
+func _input(event: InputEvent) -> void:
+	# Listen before GUI controls. The cavern ColorRect used to swallow the click.
+	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
 			return
-		var local_mouse := InputManager.event_local_position(mouse, self)
+		var local_mouse := _mouse_local()
 		if mouse.pressed:
 			if _distance_to_curve(local_mouse) <= grab_radius:
-				_begin_drag(local_mouse, 0)
-		elif is_dragged:
+				_begin_drag(local_mouse, -1)
+				get_viewport().set_input_as_handled()
+		elif is_dragged and active_touch_index == -1:
 			_release_tendril()
-	elif event is InputEventMouseMotion and is_dragged:
-		_handle_drag(InputManager.event_local_position(event, self) + grab_offset)
+			get_viewport().set_input_as_handled()
+	elif event is InputEventMouseMotion and is_dragged and active_touch_index == -1:
+		_handle_drag(_mouse_local())
+		get_viewport().set_input_as_handled()
+	elif event is InputEventScreenTouch:
+		var touch := event as InputEventScreenTouch
+		var local_pos := _pointer_local(touch.position)
+		if touch.pressed:
+			if not is_dragged and _distance_to_curve(local_pos) <= grab_radius:
+				_begin_drag(local_pos, touch.index)
+				get_viewport().set_input_as_handled()
+		elif is_dragged and touch.index == active_touch_index:
+			_release_tendril()
+			get_viewport().set_input_as_handled()
+	elif event is InputEventScreenDrag and is_dragged:
+		var drag := event as InputEventScreenDrag
+		if drag.index == active_touch_index:
+			_handle_drag(_pointer_local(drag.position))
+			get_viewport().set_input_as_handled()
+
+
+func _mouse_local() -> Vector2:
+	return to_local(get_global_mouse_position())
+
+
+func _pointer_local(viewport_pos: Vector2) -> Vector2:
+	var world: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * viewport_pos
+	return to_local(world)
 
 
 func _begin_drag(local_pos: Vector2, touch_index: int) -> void:
 	is_dragged = true
 	active_touch_index = touch_index
-	grab_offset = current_midpoint - local_pos
-	_handle_drag(local_pos + grab_offset)
+	grab_offset = Vector2.ZERO
+	_handle_drag(local_pos)
 
 
 func _handle_drag(target_pos: Vector2) -> void:
@@ -95,6 +117,7 @@ func _handle_drag(target_pos: Vector2) -> void:
 	tendril_stretched.emit(offset, ratio)
 	_rebuild_curve()
 	update_visual_curve()
+	_support_droplets(1.0 / 60.0)
 	queue_redraw()
 
 
@@ -114,7 +137,18 @@ func _release_tendril() -> void:
 		snap_audio.play()
 	AudioController.play_tendril_snap()
 	tendril_released.emit(impulse_vector)
+	var launched: Array[FluidDroplet] = []
+	for drop in seated_drops:
+		if is_instance_valid(drop) and not drop.is_absorbed:
+			launched.append(drop)
 	for drop in _drops_on_membrane():
+		if not launched.has(drop):
+			launched.append(drop)
+	seated_drops.clear()
+	seat_u.clear()
+	seat_speed.clear()
+	drop_is_seated = false
+	for drop in launched:
 		drop.ignore_membrane(0.45)
 		drop.apply_launch_impulse(impulse_vector)
 		droplet_launched.emit(drop, impulse_vector)
@@ -123,13 +157,15 @@ func _release_tendril() -> void:
 func _physics_process(delta: float) -> void:
 	prev_curve_points = curve_points.duplicate()
 	if not is_dragged:
-		var displacement := current_midpoint - rest_midpoint
+		var load := Vector2(0.0, 46.0) if drop_is_seated else Vector2.ZERO
+		var target := rest_midpoint + load
+		var displacement := current_midpoint - target
 		var spring_force := -spring_stiffness * displacement
 		var damping_force := -damping * midpoint_velocity
 		midpoint_velocity += (spring_force + damping_force) * delta
 		current_midpoint += midpoint_velocity * delta
 		if displacement.length() < 0.35 and midpoint_velocity.length() < 8.0:
-			current_midpoint = rest_midpoint
+			current_midpoint = target
 			midpoint_velocity = Vector2.ZERO
 	_rebuild_curve()
 	update_visual_curve()
@@ -137,7 +173,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_physics_frame() -> void:
-	_support_droplets()
+	_support_droplets(get_physics_process_delta_time())
 
 
 func _rebuild_curve() -> void:
@@ -161,18 +197,97 @@ func _draw() -> void:
 	if curve_points.size() < 2:
 		return
 	var stretch_ratio := (current_midpoint - rest_midpoint).length() / max_stretch_distance
-	draw_polyline(curve_points, Color(0.02, 0.04, 0.05, 0.55), membrane_radius * 2.6, true)
 	draw_polyline(curve_points, Color(0, 0, 0, 1), membrane_radius * 1.7, true)
+	_draw_dashed(curve_points, Color(0.75, 0.96, 1, 0.95), 2.4, 3)
 	draw_circle(anchor_left, 7.0, Color(0, 0, 0, 1))
 	draw_circle(anchor_right, 7.0, Color(0, 0, 0, 1))
 	if is_dragged:
-		var glow := Color(tension_glow_color, 0.35 + stretch_ratio * 0.4)
-		draw_circle(current_midpoint, 10.0, glow)
+		var glow := Color(tension_glow_color, 0.45 + stretch_ratio * 0.4)
+		draw_circle(current_midpoint, 8.0, glow)
+		draw_circle(current_midpoint, 16.0, Color(glow, 0.28))
+		_draw_flight_dots()
 
 
 func _sample_quadratic_bezier(p0: Vector2, p1: Vector2, p2: Vector2, t: float) -> Vector2:
 	var u := 1.0 - t
 	return (u * u * p0) + (2.0 * u * t * p1) + (t * t * p2)
+
+
+func _bezier(u: float) -> Vector2:
+	return _sample_quadratic_bezier(anchor_left, current_midpoint, anchor_right, clampf(u, 0.0, 1.0))
+
+
+func _bezier_up(u: float) -> Vector2:
+	var a := _bezier(u - 0.012)
+	var b := _bezier(u + 0.012)
+	var tangent := b - a
+	if tangent.length() < 0.001:
+		return Vector2.UP
+	var normal := Vector2(-tangent.y, tangent.x).normalized()
+	if normal.dot(Vector2.UP) < 0.0:
+		normal = -normal
+	return normal
+
+
+func _closest_bezier_u(local_point: Vector2) -> float:
+	var best_u := 0.5
+	var best_dist := INF
+	for i in range(25):
+		var u := float(i) / 24.0
+		var dist := local_point.distance_squared_to(_bezier(u))
+		if dist < best_dist:
+			best_dist = dist
+			best_u = u
+	return best_u
+
+
+func _slide_downhill(u: float, dt: float) -> float:
+	var step := 0.04
+	var y0 := _bezier(u).y
+	var y_right := _bezier(clampf(u + step, 0.0, 1.0)).y
+	var y_left := _bezier(clampf(u - step, 0.0, 1.0)).y
+	var dir := 0.0
+	if y_right > y_left and y_right > y0:
+		dir = 1.0
+	elif y_left > y0:
+		dir = -1.0
+	if dir == 0.0:
+		return u
+	var slope := maxf(y_right, y_left) - y0
+	var speed := clampf(0.7 + slope * 0.09, 0.7, 2.4)
+	return clampf(u + dir * speed * dt, 0.04, 0.96)
+
+
+func _draw_dashed(points: PackedVector2Array, color: Color, width: float, stride: int) -> void:
+	var step := maxi(stride, 2)
+	for i in range(0, points.size() - 1, step):
+		var end := mini(i + 1, points.size() - 1)
+		draw_line(points[i], points[end], color, width, true)
+		draw_circle(points[i], width * 0.65, color)
+
+
+func _draw_flight_dots() -> void:
+	var displacement := current_midpoint - rest_midpoint
+	if displacement.length() <= 6.0:
+		return
+	var start := to_global(current_midpoint)
+	var mass := 0.65
+	if not seated_drops.is_empty() and is_instance_valid(seated_drops[0]):
+		start = seated_drops[0].global_position
+		mass = maxf(seated_drops[0].mass, 0.05)
+	var impulse := -displacement.normalized() * maxf(displacement.length() * launch_force_multiplier, min_release_impulse)
+	var velocity := impulse / mass
+	var gravity_y := float(ProjectSettings.get_setting("physics/2d/default_gravity")) * 1.15
+	var gravity := Vector2(0.0, gravity_y)
+	var previous := to_local(start)
+	for i in 16:
+		var t := float(i + 1) * 0.065
+		var world := start + velocity * t + 0.5 * gravity * t * t
+		var local := to_local(world)
+		if i % 2 == 0:
+			draw_line(previous, local, Color(0.55, 0.95, 1.0, 0.75), 2.4, true)
+		draw_circle(local, 2.6, Color(0.75, 0.98, 1.0, 0.9))
+		previous = local
 
 
 func _distance_to_curve(local_point: Vector2) -> float:
@@ -181,31 +296,68 @@ func _distance_to_curve(local_point: Vector2) -> float:
 	return float(_closest_on_curve(local_point, curve_points).dist)
 
 
-func _support_droplets() -> void:
-	var next: Array[FluidDroplet] = []
+func _support_droplets(dt: float) -> void:
+	var kept: Array[FluidDroplet] = []
+	var kept_u: Dictionary = {}
+	var kept_speed: Dictionary = {}
 	if curve_points.size() < 2:
-		seated_drops = next
+		seated_drops.clear()
+		seat_u.clear()
+		seat_speed.clear()
+		drop_is_seated = false
 		return
+	var gravity := Vector2(0.0, float(ProjectSettings.get_setting("physics/2d/default_gravity")))
 	for node in get_tree().get_nodes_in_group("fluid_droplet"):
 		var drop := node as FluidDroplet
 		if drop == null or drop.is_absorbed or drop.is_forming or drop.freeze:
 			continue
 		if drop.membrane_cooldown > 0.0:
 			continue
+		var id := drop.get_instance_id()
 		var local := to_local(drop.global_position)
-		var hit: Dictionary = _closest_on_curve(local, curve_points)
-		var normal := _upward_normal(int(hit.index))
-		var side := (local - (hit.point as Vector2)).dot(normal)
+		var closest := _closest_bezier_u(local)
 		var limit := membrane_radius + drop.base_radius
-		var already := seated_drops.has(drop)
-		var catching := side <= limit + 22.0 and side >= -10.0 and float(hit.dist) < limit + 30.0
-		if not already and not catching:
+		var already: bool = seat_u.has(id)
+		if not already and local.distance_to(_bezier(closest)) > limit + 20.0:
 			continue
-		# Always sit on the upper side. A center that slips past the line used to get pushed downward.
-		drop.global_position = to_global((hit.point as Vector2) + normal * limit)
+		var u := closest if not already else float(seat_u[id])
+		var tangent := _bezier(clampf(u + 0.02, 0.0, 1.0)) - _bezier(clampf(u - 0.02, 0.0, 1.0))
+		var span := maxf(tangent.length() / 0.04, 40.0)
+		if tangent.length() < 0.001:
+			tangent = Vector2.RIGHT
+		else:
+			tangent = tangent.normalized()
+		var speed := 0.0 if not already else float(seat_speed.get(id, 0.0))
+		var impact := 0.0
+		if not already:
+			speed = drop.linear_velocity.dot(tangent) * 0.72
+			impact = drop.linear_velocity.length()
+			if not is_dragged:
+				midpoint_velocity += Vector2(0.0, minf(impact, 420.0) * 0.06)
+		speed += gravity.dot(tangent) * drop.gravity_scale * dt
+		speed *= 0.992
+		if absf(tangent.dot(Vector2.DOWN)) < 0.06:
+			speed *= 0.9
+		u += (speed / span) * dt
+		if u <= 0.05 or u >= 0.95:
+			speed *= -0.35
+			u = clampf(u, 0.05, 0.95)
+		var point := _bezier(u)
+		var normal := _bezier_up(u)
+		drop.global_position = to_global(point + normal * limit)
 		drop.linear_velocity = Vector2.ZERO
-		next.append(drop)
-	seated_drops = next
+		drop.ride_surface(tangent * speed, impact)
+		kept.append(drop)
+		kept_u[id] = u
+		kept_speed[id] = speed
+	seated_drops.clear()
+	seated_drops.append_array(kept)
+	seat_u.clear()
+	seat_speed.clear()
+	for id in kept_u:
+		seat_u[id] = kept_u[id]
+		seat_speed[id] = kept_speed[id]
+	drop_is_seated = seated_drops.size() > 0
 
 
 func _upward_normal(index: int) -> Vector2:

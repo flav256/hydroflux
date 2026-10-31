@@ -18,6 +18,8 @@ var is_forming: bool = false
 var form_t: float = 0.0
 var splash_squash: float = 1.0
 var membrane_cooldown: float = 0.0
+var surface_velocity: Vector2 = Vector2.ZERO
+var trail: Array[Vector2] = []
 
 @onready var light: PointLight2D = get_node_or_null("PointLight2D")
 
@@ -56,7 +58,13 @@ func _physics_process(delta: float) -> void:
 		scale = Vector2(lerpf(0.15, 1.0, eased), lerpf(0.35, 1.05, eased))
 		if form_t >= 1.0:
 			_detach()
-	splash_squash = move_toward(splash_squash, 1.0, delta * 4.0)
+	splash_squash = move_toward(splash_squash, 1.0, delta * 3.2)
+	if is_forming:
+		trail.clear()
+	elif Engine.get_physics_frames() % 2 == 0:
+		trail.append(global_position)
+		if trail.size() > 8:
+			trail.remove_at(0)
 	queue_redraw()
 
 
@@ -68,26 +76,59 @@ func _detach() -> void:
 	detached.emit()
 
 
+func ride_surface(velocity: Vector2, impact_speed: float) -> void:
+	surface_velocity = velocity
+	if impact_speed > 90.0:
+		splash_squash = clampf(1.0 - impact_speed / 1600.0, 0.48, 0.8)
+
+
 func _draw() -> void:
 	if is_absorbed:
 		return
-	var speed := linear_velocity.length()
-	var stretch := clampf(1.0 + (speed / 700.0) * (max_velocity_stretch - 1.0), 1.0, max_velocity_stretch)
-	var squash := (1.0 / sqrt(stretch)) * splash_squash
-	var angle := 0.0 if is_forming or freeze else linear_velocity.angle()
-	draw_set_transform(Vector2.ZERO, angle, Vector2(stretch, squash))
-	draw_circle(Vector2.ZERO, base_radius * 3.4, Color(droplet_color, 0.08))
-	draw_circle(Vector2.ZERO, base_radius * 2.2, Color(droplet_color, 0.16))
-	draw_circle(Vector2.ZERO, base_radius * 1.45, Color(droplet_color, 0.45))
-	draw_circle(Vector2.ZERO, base_radius, droplet_color)
-	draw_circle(Vector2.ZERO, base_radius * 0.55, Color(0.85, 1.0, 1.0, 0.95))
-	draw_circle(Vector2.ZERO, base_radius * 0.22, core_color)
+	var motion := linear_velocity
+	if surface_velocity.length_squared() > motion.length_squared():
+		motion = surface_velocity
+	var now := Time.get_ticks_msec() * 0.001
+	var speed := motion.length()
+	var dir := Vector2.DOWN
+	if speed > 36.0:
+		dir = motion.normalized()
+	var stretch := clampf(speed / 480.0, 0.0, 0.9)
+	if freeze and not is_forming:
+		stretch = 0.06 + sin(now * 3.4) * 0.035
+	var step := 0
+	for point in trail:
+		step += 1
+		var local := to_local(point)
+		if local.length() < base_radius * 0.7:
+			continue
+		var fade := 1.0 - float(step) / float(trail.size() + 1)
+		draw_circle(local, base_radius * lerpf(0.28, 0.72, fade), Color(droplet_color, 0.28 * fade))
+	draw_circle(Vector2.ZERO, base_radius * 3.3, Color(droplet_color, 0.07))
+	draw_circle(Vector2.ZERO, base_radius * 2.1, Color(droplet_color, 0.12))
+	var body := PackedVector2Array()
+	for i in 26:
+		var a := TAU * float(i) / 26.0
+		var n := Vector2(cos(a), sin(a))
+		var along := n.dot(dir)
+		var side := n - dir * along
+		var wide := base_radius * splash_squash * (1.0 + stretch * 0.12)
+		var p := side * wide + dir * along * base_radius * (0.82 - stretch * 0.2)
+		if along < 0.0:
+			p += -dir * base_radius * (0.45 + stretch * 1.15) * (-along)
+		p += n * sin(a * 3.0 + now * 7.0) * base_radius * 0.055
+		body.append(p)
+	draw_colored_polygon(body, droplet_color)
+	var glint := -dir * base_radius * 0.12 + Vector2(cos(now * 2.3), sin(now * 2.9)) * base_radius * 0.18
+	draw_circle(glint, base_radius * 0.36, Color(0.9, 1.0, 1.0, 0.92))
+	draw_circle(glint * 0.35, base_radius * 0.13, core_color)
 
 
 func apply_launch_impulse(impulse: Vector2) -> void:
 	if is_forming:
 		_detach()
 	freeze = false
+	surface_velocity = Vector2.ZERO
 	linear_velocity = Vector2.ZERO
 	angular_velocity = 0.0
 	apply_central_impulse(impulse)

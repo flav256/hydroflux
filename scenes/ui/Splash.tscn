@@ -1,0 +1,31 @@
+[gd_scene load_steps=4 format=3 uid="uid://cfluxsplash001"]
+
+[ext_resource type="Script" path="res://scripts/ui/Splash.gd" id="1_splash"]
+[ext_resource type="Shader" path="res://assets/shaders/cavern_glow.gdshader" id="2_glow"]
+[ext_resource type="Script" path="res://scripts/ui/SplashArt.gd" id="3_art"]
+
+[sub_resource type="ShaderMaterial" id="Mat_glow"]
+shader = ExtResource("2_glow")
+
+[node name="Splash" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_splash")
+
+[node name="Backdrop" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+material = SubResource("Mat_glow")
+color = Color(1, 1, 1, 1)
+
+[node name="Art" type="Node2D" parent="."]
+script = ExtResource("3_art")

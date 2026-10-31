@@ -13,13 +13,17 @@ Built in **Godot 4.3+** (GDScript), targeting iOS and Android at 60/120 FPS.
 | Particles | soft neon dust, low count |
 | Audio | ambient pads, water drops, cello swells on interaction |
 
-Teach by environment, not pop-up walls of text.
+Teach by the room. Level 0 may show one short line. Later levels stay quiet.
+
+The story in `docs/NARRATIVE.md` is a working draft. Chapters, verbs, and the order of rooms will change as we play. Do not treat that file as a locked script.
 
 ## Stack
 
 - Engine: Godot 4.x, `gl_compatibility` renderer (mobile + HTML5).
 - Physics: 2D rigid bodies for droplets, custom spring for tendrils.
-- Input: multi-touch + mouse fallback (`emulate_touch_from_mouse`).
+- Input: real touch, and mouse on desktop. The tendril listens in `_input` and converts with the viewport canvas transform. Full-screen `ColorRect` nodes use `mouse_filter = IGNORE` so they cannot eat the drag. Mouse emulation of touch is off.
+- Boot: Splash → level select → level. Chapter 1 rooms that are not built stay grey. A debug run of Godot can still open them.
+- Score: up to 3 stars (cleared, at most one miss, under the level’s time). Points follow the stars, with a small penalty for extra misses. Best stars and best points are kept.
 - Saves: `user://hydroflux.save` via `GameManager`.
 
 ## Architecture
@@ -43,8 +47,8 @@ AudioController       cue playback (silent until streams exist)
 
 | Name | Role |
 | --- | --- |
-| `GameManager` | Level routing, unlocks, pause |
-| `AudioController` | Named SFX / ambient cues |
+| `GameManager` | Level list, routing, stars, points |
+| `AudioController` | Looping bed and one-shot cues |
 | `InputManager` | Touch/mouse to local/world space |
 
 Do not put gameplay logic in autoloads. Levels own flow; objects own physics.
@@ -64,7 +68,7 @@ Droplets collide with geometry (1), tendril (3), and core (4). Mask `13`.
 
 ### Elastic tendril
 
-Two fixed anchors, quadratic bezier through a dragged midpoint, clamp to `max_stretch_distance`. On release: restorative impulse on overlapping droplets + damped harmonic rebound of the vine.
+Two fixed anchors, quadratic bezier through a dragged midpoint, clamp to `max_stretch_distance`. The drop sits on the upper side of the curve and stays there until release. On release: restorative impulse, then the vine springs back without pulling the drop through. Desktop: press on the vine, drag, release the mouse button anywhere.
 
 ### Fluid droplet
 
@@ -82,9 +86,13 @@ Area2D volume counter. Glow fill ratio = `current / required`. Emits `core_activ
 
 ## Level 0 — The First Drop
 
-1. **Observation (0–5s)** — one drop forms on the stalactite, falls into the left basin.
-2. **Tendril (5–15s)** — barrier blocks the path; vine pulses; player drags.
-3. **Launch** — snap sends a drop over the barrier into the core.
+1. A light forms on the stalactite and settles on the vine.
+2. One line tells you to pull the vine back, then release.
+3. The snap throws it into the well. Stars and points appear, with a short chime. The bed is `assets/audio/level0_bed.wav`. The drop is `drop.wav`.
+
+## Boot
+
+Splash, then the chapter list. Level 0 is open. The other Chapter 1 rooms are grey until they exist. In a development run they can still be opened.
 
 ## File map
 

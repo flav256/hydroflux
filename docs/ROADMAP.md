@@ -1,16 +1,19 @@
 # HydroFlux — Development roadmap
 
-Design lives in `docs/NARRATIVE.md`. This file is the order of work.
+`docs/NARRATIVE.md` is a working draft. Chapter names, order, and verbs will change as we play. This file follows the build, not a locked story.
+
+Godot 4 can ship this to the web, the App Store, and Google Play. None of those builds exist yet.
 
 Godot 4 can ship to the web, the App Store, and Google Play. The game is not store-ready yet. The path is: finish Level 0 by hand, export HTML5, then mobile signing.
 
 ## Where we are
 
-- [x] Project, menu, Level 0 cavern, glow, black silhouettes
-- [x] Membrane holds a drop on its upper side and throws on release
-- [x] One-line tutorial on Level 0
-- [ ] Play Level 0 from `play.command` (stays open until the window is closed)
-- [ ] Record or source the spa / drip / snap / well sounds
+- [x] Splash, then Chapter 1 list. Level 0 is playable. Later rooms are grey, and openable in a development run.
+- [x] Membrane holds a drop. Desktop drag uses the mouse button, not emulated touch.
+- [x] One-line hint on Level 0
+- [x] Stars (clear, few misses, fast) and points, kept per level
+- [x] Level 0 bed, drop, and a short completion chime
+- [ ] Replace the generated bed with a recorded piece if the loop feels thin
 - [ ] Hand-drawn silhouette plates instead of generated polygons
 
 ## 0 — Level 0 you can finish with a thumb

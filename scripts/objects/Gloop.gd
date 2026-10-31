@@ -77,6 +77,8 @@ var film_pos: Vector2 = Vector2.ZERO
 
 func _ready() -> void:
 	add_to_group("gloop")
+	# Draw over the thick membrane so Gloop stays visible while it is seated in the curve.
+	z_index = 6
 	contact_monitor = true
 	max_contacts_reported = 4
 	gravity_scale = 1.15

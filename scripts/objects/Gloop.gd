@@ -13,7 +13,7 @@ signal detached()
 @export var max_velocity_stretch: float = 1.8
 @export var form_duration: float = 0.85
 
-enum Mood { QUIET, IMPATIENT, TICKLED, HELD }
+enum Mood { QUIET, IMPATIENT, TICKLED, HELD, FLIGHT, FALL }
 enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
 
 var is_absorbed: bool = false
@@ -27,6 +27,8 @@ var trail: Array[Vector2] = []
 var mood: Mood = Mood.QUIET
 var presence: float = 0.0
 var idle_time: float = 0.0
+var flight_time: float = 0.0
+var falling_time: float = 0.0
 var gaze: Vector2 = Vector2.ZERO
 var giggle: float = 0.0
 var seated_fresh: bool = false
@@ -265,6 +267,15 @@ func _live(delta: float) -> void:
 	var on_vine := seated_fresh
 	if not on_vine:
 		held = false
+	var airborne := not on_vine and not freeze and not is_forming and moment != Moment.FILM
+	if airborne and speed > 90.0:
+		flight_time += delta
+	else:
+		flight_time = move_toward(flight_time, 0.0, delta * 2.0)
+	if airborne and linear_velocity.y > 100.0:
+		falling_time += delta
+	else:
+		falling_time = move_toward(falling_time, 0.0, delta * 2.5)
 	var near := false
 	if not is_forming and not is_absorbed:
 		near = global_position.distance_to(get_global_mouse_position()) < base_radius * 3.8
@@ -290,8 +301,17 @@ func _live(delta: float) -> void:
 	elif resting and idle_time > 1.15:
 		next = Mood.IMPATIENT
 		show = true
+	elif airborne and falling_time > 0.28:
+		next = Mood.FALL
+		show = true
+	elif airborne and speed > 90.0 and flight_time < 0.65:
+		next = Mood.FLIGHT
+		show = true
 	mood = next
-	presence = move_toward(presence, 1.0 if show else 0.0, delta * (2.2 if show else 1.3))
+	var presence_target := 1.0 if show else 0.0
+	if mood == Mood.FLIGHT:
+		presence_target = clampf(1.0 - maxf(flight_time - 0.12, 0.0) / 0.53, 0.0, 1.0)
+	presence = move_toward(presence, presence_target, delta * (4.0 if show else 1.3))
 	var now := Time.get_ticks_msec() * 0.001
 	var gaze_target := Vector2.ZERO
 	if mood == Mood.IMPATIENT:
@@ -300,6 +320,10 @@ func _live(delta: float) -> void:
 		gaze_target = hold_dir * 1.2
 	elif mood == Mood.TICKLED:
 		gaze_target = Vector2(sin(now * 8.0) * 0.3, -0.4)
+	elif mood == Mood.FLIGHT:
+		gaze_target = linear_velocity.normalized() * 1.15
+	elif mood == Mood.FALL:
+		gaze_target = Vector2(0.0, 1.3)
 	gaze = gaze.lerp(gaze_target, 1.0 - exp(-5.0 * delta))
 	settled = move_toward(settled, 1.0 if resting else 0.0, delta * 2.2)
 	var target_y := 1.0
@@ -334,6 +358,10 @@ func _draw_presence(now: float) -> void:
 	var open := 1.0
 	if mood == Mood.TICKLED:
 		open = 0.22
+	elif mood == Mood.FLIGHT:
+		open = 0.5
+	elif mood == Mood.FALL:
+		open = 1.18
 	elif mood != Mood.HELD:
 		var phase := fposmod(now + 0.4, 3.6)
 		if phase < 0.14:
@@ -341,6 +369,16 @@ func _draw_presence(now: float) -> void:
 		elif phase > 3.15:
 			open = (3.6 - phase) / 0.45
 	var gap := base_radius * 0.38
+	var eye_axis := Vector2.RIGHT
+	var eye_angle := 0.0
+	if mood == Mood.FLIGHT:
+		var travel := linear_velocity.normalized()
+		if travel.length_squared() > 0.1:
+			eye_axis = Vector2(-travel.y, travel.x)
+			eye_angle = travel.angle() + PI * 0.5
+			gap = base_radius * 0.28
+	elif mood == Mood.FALL:
+		gap = base_radius * 0.42
 	if mood == Mood.HELD:
 		gap = base_radius * 0.26
 	elif mood == Mood.IMPATIENT:
@@ -349,22 +387,26 @@ func _draw_presence(now: float) -> void:
 	var tilt := sin(now * 0.4) * 0.55 if mood == Mood.IMPATIENT else 0.0
 	var ink := Color(0.012, 0.03, 0.045, 0.95 * presence)
 	for side in [-1.0, 1.0]:
-		var pos := origin + Vector2(side * gap, tilt * side) + gaze * 0.12
+		var pos := origin + eye_axis * (side * gap) + Vector2(0.0, tilt * side) + gaze * 0.12
 		if mood == Mood.TICKLED:
 			draw_arc(pos + Vector2(0.0, 0.45), 1.9, PI + 0.5, TAU - 0.5, 7, ink, 1.05, true)
 		else:
 			var ry := maxf(1.55 * open, 0.14)
-			_eye_disk(pos, 1.55, ry, ink)
+			var rx := 1.55
+			if mood == Mood.FLIGHT:
+				rx = 1.15
+				ry = maxf(1.8 * open, 0.14)
+			_eye_disk(pos, rx, ry, ink, eye_angle)
 			if open > 0.4:
 				var pupil := gaze.limit_length(0.55)
-				_eye_disk(pos + Vector2(pupil.x * 0.45, pupil.y * 0.25), 0.55, maxf(0.5 * open, 0.14), Color(0, 0, 0, presence))
+				_eye_disk(pos + Vector2(pupil.x * 0.45, pupil.y * 0.25), 0.55, maxf(0.5 * open, 0.14), Color(0, 0, 0, presence), eye_angle)
 
 
-func _eye_disk(center: Vector2, rx: float, ry: float, color: Color) -> void:
+func _eye_disk(center: Vector2, rx: float, ry: float, color: Color, angle: float = 0.0) -> void:
 	var pts := PackedVector2Array()
 	for i in 8:
 		var a := TAU * float(i) / 8.0
-		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry).rotated(angle))
 	draw_colored_polygon(pts, color)
 
 

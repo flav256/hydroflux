@@ -14,7 +14,7 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 - [x] Stars, points, save.
 - [x] HTML5 on GitHub Pages. One tap starts the sound. A phone stays sideways.
 - [x] Liquid hitting the Level 0 cone splashes and runs down the face instead of tumbling.
-- [ ] Eyes in flight and in a long fall
+- [x] Eyes in flight and in a long fall
 - [ ] Hand-drawn silhouette plates instead of generated polygons
 
 ## 0 — Finish the liquid drop

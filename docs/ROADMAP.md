@@ -6,6 +6,8 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 
 ## Where we are
 
+**Current focus: Level 0 quality.** Level 1 stays blocked until the Level 0 exit checks below pass in a full playthrough.
+
 - [x] Splash, then the Chapter 1 list. Level 0 is playable. Later rooms are grey.
 - [x] Membrane. The drop sits, follows the pull, and leaves on release.
 - [x] The vine is a dashed curve. Level 0 shows the flight path while you pull. Later rooms do not.
@@ -19,14 +21,28 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 
 ## 0 — Finish the liquid drop
 
-The membrane stays. This pass only changes the body.
+The membrane stays. This pass finishes the style, behavior, interface, and physics of the first room before any Level 1 work begins. The response rules are specified in `docs/BLUEPRINT.md`; implement and tune them in this order:
 
-- In flight the eyes narrow and fade. In a long fall they look down.
-- The Level 0 cone splashes and the drop runs down the face.
-- Hit a vertical wall: flatten, stick, creep downward. No marble bounce.
-- Still one rigid body. No joint ring.
+- [x] In flight the eyes narrow and fade. In a long fall they look down.
+- [x] The Level 0 cone splashes and the drop runs down the face.
+- [x] Read contact normal speed separately from tangent speed; gentle impacts squash, firm/hard impacts spread. Thresholds are exported for tuning.
+- [x] Firm impacts emit a few temporary beads; hard impacts emit a short split. Beads are attracted back to the one main Gloop body.
+- [x] Ceiling contact spreads, waits briefly, reforms slowly, and drops as one body.
+- [ ] Tune all surface responses in a visible Level 0 playthrough. Initial target is a wider, slower viscous film; broad flat faces gather at no more than 0.9 spread units per second.
+- [ ] Horizontal faces spread and gather without bounce loops.
+- [ ] Vertical faces cling and glide down under gravity.
+- [ ] Slopes carry the drop along gravity's tangent, with shallow slopes allowing it to gather.
+- [x] Use authored silhouette plates for Level 0 scenery, with collision geometry kept separate.
+- [x] Directly loading Level 0 spawns one Gloop after formation; no GDScript errors.
+- [ ] Verify the menu-to-Level-0 handoff in a full visible playthrough.
+- [ ] Complete the full loop: seat, pull, launch, miss and retry, then activate the well.
+- [x] Disconnect membrane physics callbacks on teardown; clean shutdown no longer calls freed level nodes.
+- [x] Keep a visible route from Level 0 back to the chapter list.
+- [ ] Verify mouse and touch input, readable hints, and clear win feedback. Membrane drag and Gloop's near-hand response now use shared `InputManager` world coordinates for both devices.
+- [ ] Tune the drop, membrane, light, and sound together in a full playthrough.
+- [x] Keep one main rigid body and no joint ring; impact beads remain temporary visual satellites.
 
-**Exit:** Level 0 feels the same to throw, and a test wall shows the cling.
+**Exit:** every check above passes in a full playthrough on desktop and a touch device. Only then begin Level 1 — The Vein.
 
 ## 1 — The Vein
 

@@ -13,6 +13,15 @@ signal detached()
 @export var max_velocity_stretch: float = 1.8
 @export var form_duration: float = 0.85
 
+@export_group("Surface Response")
+@export var film_impact_threshold: float = 70.0
+@export var bead_impact_threshold: float = 160.0
+@export var split_impact_threshold: float = 520.0
+@export var spread_duration: float = 0.24
+@export var surface_reform_rate: float = 0.9
+@export var ceiling_hold_duration: float = 1.0
+@export var ceiling_reform_rate: float = 0.52
+
 enum Mood { QUIET, IMPATIENT, TICKLED, HELD, FLIGHT, FALL }
 enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
 
@@ -56,6 +65,7 @@ var split_from: Vector2 = Vector2.ZERO
 var split_spots: Array[Vector2] = []
 var touch_kind: String = ""
 var touch_normal: Vector2 = Vector2.ZERO
+var touch_impact_speed: float = 0.0
 var film_spread: float = 0.0
 var film_flat: float = 1.0
 var film_normal: Vector2 = Vector2.UP
@@ -277,8 +287,8 @@ func _live(delta: float) -> void:
 	else:
 		falling_time = move_toward(falling_time, 0.0, delta * 2.5)
 	var near := false
-	if not is_forming and not is_absorbed:
-		near = global_position.distance_to(get_global_mouse_position()) < base_radius * 3.8
+	if not is_forming and not is_absorbed and InputManager.has_pointer:
+		near = global_position.distance_to(InputManager.world_pointer) < base_radius * 3.8
 	if near and not was_near and not held:
 		giggle = 1.0
 		shape_v += 0.9
@@ -387,7 +397,7 @@ func _draw_presence(now: float) -> void:
 	var tilt := sin(now * 0.4) * 0.55 if mood == Mood.IMPATIENT else 0.0
 	var ink := Color(0.012, 0.03, 0.045, 0.95 * presence)
 	for side in [-1.0, 1.0]:
-		var pos := origin + eye_axis * (side * gap) + Vector2(0.0, tilt * side) + gaze * 0.12
+		var pos: Vector2 = origin + eye_axis * (side * gap) + Vector2(0.0, tilt * side) + gaze * 0.12
 		if mood == Mood.TICKLED:
 			draw_arc(pos + Vector2(0.0, 0.45), 1.9, PI + 0.5, TAU - 0.5, 7, ink, 1.05, true)
 		else:
@@ -441,15 +451,20 @@ func _glide_on_stone(delta: float) -> void:
 		return
 	if touch_kind.is_empty() or touch_normal == Vector2.ZERO:
 		return
-	if linear_velocity.length() < 70.0:
+	var impact_speed := touch_impact_speed
+	touch_impact_speed = 0.0
+	if impact_speed < film_impact_threshold:
+		if impact_speed > 24.0:
+			_impact_deform(touch_normal, impact_speed)
 		return
-	begin_film(touch_normal, linear_velocity.length())
+	begin_film(touch_normal, impact_speed)
 
 
 func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 	state.angular_velocity = 0.0
 	touch_kind = ""
 	touch_normal = Vector2.ZERO
+	touch_impact_speed = 0.0
 	var rank := 0
 	for i in state.get_contact_count():
 		var other := state.get_contact_collider_object(i) as Node
@@ -478,6 +493,7 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		rank = weight
 		touch_kind = kind
 		touch_normal = normal.normalized()
+		touch_impact_speed = maxf(-state.linear_velocity.dot(touch_normal), 0.0)
 
 
 func _contact_kind() -> String:
@@ -493,7 +509,7 @@ func _stone_normal() -> Vector2:
 func begin_film(normal: Vector2, impact: float) -> void:
 	moment = Moment.FILM
 	moment_t = 0.0
-	film_spread = 1.0
+	film_spread = 0.12
 	film_normal = normal.normalized()
 	film_flat = clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
 	film_pos = global_position
@@ -502,7 +518,7 @@ func begin_film(normal: Vector2, impact: float) -> void:
 	collision_mask = 0
 	linear_velocity = Vector2.ZERO
 	angular_velocity = 0.0
-	_splash_on(film_normal, maxf(impact, 140.0))
+	_splash_on(film_normal, impact)
 
 
 func flow_on_surface(delta: float) -> void:
@@ -522,7 +538,17 @@ func flow_on_surface(delta: float) -> void:
 	flow = minf(flow, lerpf(10.0, 58.0, spill))
 	flow *= lerpf(0.45, 1.0, 1.0 - film_spread * 0.45)
 	var gather := lerpf(0.16, 1.55, flat) * lerpf(0.75, 1.7, 1.0 - film_spread)
-	film_spread = move_toward(film_spread, 0.0, gather * delta)
+	var is_ceiling := film_normal.dot(Vector2.DOWN) > 0.82
+	if moment_t < spread_duration:
+		film_spread = move_toward(film_spread, 1.0, delta / maxf(spread_duration, 0.01))
+	elif is_ceiling and moment_t < spread_duration + ceiling_hold_duration:
+		film_spread = 1.0
+	else:
+		if is_ceiling:
+			gather = minf(gather, ceiling_reform_rate)
+		elif flat > 0.82:
+			gather = minf(gather, surface_reform_rate)
+		film_spread = move_toward(film_spread, 0.0, gather * delta)
 	var space := get_world_2d().direct_space_state
 	if space == null:
 		_leave_surface(true)
@@ -543,7 +569,9 @@ func flow_on_surface(delta: float) -> void:
 	film_pos = hit.position + film_normal * hug
 	global_position = film_pos
 	var peel := gravity.dot(film_normal)
-	if film_spread < 0.1 and peel > 90.0:
+	if is_ceiling and moment_t >= spread_duration + ceiling_hold_duration and film_spread < 0.08:
+		_leave_surface(true)
+	elif film_spread < 0.1 and peel > 90.0:
 		_leave_surface(true)
 	elif film_spread < 0.08 and flat > 0.82 and peel <= 0.0:
 		_leave_surface(false)
@@ -578,12 +606,12 @@ func _draw_film() -> void:
 	var tangent := Vector2(normal.y, -normal.x)
 	if tangent.dot(Vector2.DOWN) < 0.0:
 		tangent = -tangent
-	var wide := lerpf(base_radius, base_radius * lerpf(2.3, 5.4, film_flat), film_spread)
-	var thick := lerpf(base_radius * 0.92, base_radius * lerpf(0.62, 0.2, film_flat), film_spread)
+	var wide := lerpf(base_radius, base_radius * lerpf(2.8, 6.2, film_flat), film_spread)
+	var thick := lerpf(base_radius * 0.92, base_radius * lerpf(0.7, 0.28, film_flat), film_spread)
 	var body := PackedVector2Array()
 	for i in 24:
 		var a := TAU * float(i) / 24.0
-		var wobble := 1.0 + sin(a * 3.0 + moment_t * 7.0) * film_spread * 0.16
+		var wobble := 1.0 + sin(a * 3.0 + moment_t * 7.0) * film_spread * 0.18
 		body.append(tangent * cos(a) * wide * wobble + normal * sin(a) * thick)
 	draw_colored_polygon(body, droplet_color)
 	if film_spread > 0.2:
@@ -597,19 +625,28 @@ func _draw_film() -> void:
 
 
 func _splash_on(normal: Vector2, speed: float) -> void:
-	splash_squash = clampf(0.72 - speed / 1400.0, 0.42, 0.7)
-	shape_v -= clampf(speed / 180.0, 0.6, 2.6)
-	slosh_v += -normal * clampf(speed / 700.0, 0.2, 1.4)
+	_impact_deform(normal, speed)
+	var count := 0
+	if speed >= split_impact_threshold:
+		count = 5
+	elif speed >= bead_impact_threshold:
+		count = 2
 	var tangent := Vector2(normal.y, -normal.x)
-	var count := 7 if speed > 160.0 else 4
 	for i in count:
 		var side := -1.0 if i < count / 2 else 1.0
 		bead_pos.append(global_position - normal * base_radius * 0.2)
 		bead_vel.append(tangent * side * randf_range(30.0, 110.0) + normal * randf_range(40.0, 130.0))
-		bead_life.append(randf_range(0.55, 1.05))
+		bead_life.append(randf_range(1.35, 1.9))
 	if speed > 90.0:
 		splashed.emit(global_position, normal)
 		AudioController.play(AudioController.Cue.DROP_SPLASH, randf_range(0.94, 1.08))
+
+
+func _impact_deform(normal: Vector2, speed: float) -> void:
+	var strength := clampf(speed / 900.0, 0.0, 1.0)
+	splash_squash = lerpf(0.98, 0.52, strength)
+	shape_v -= lerpf(0.08, 2.4, strength)
+	slosh_v += -normal * lerpf(0.03, 1.2, strength)
 
 
 func _step_beads(delta: float) -> void:
@@ -618,13 +655,13 @@ func _step_beads(delta: float) -> void:
 	var kept_life := PackedFloat32Array()
 	for i in bead_pos.size():
 		var life := bead_life[i] - delta
-		if life <= 0.0:
-			continue
-		var velocity: Vector2 = bead_vel[i] + Vector2(0.0, 220.0) * delta
 		var pull := global_position - bead_pos[i]
 		var dist := pull.length()
-		if dist < base_radius * 0.9:
+		if dist < base_radius * 1.25:
 			continue
+		if life <= 0.0:
+			life = 0.24
+		var velocity: Vector2 = bead_vel[i] + Vector2(0.0, 220.0) * delta
 		velocity += pull / dist * 460.0 * delta
 		velocity *= exp(-2.4 * delta)
 		kept_pos.append(bead_pos[i] + velocity * delta)

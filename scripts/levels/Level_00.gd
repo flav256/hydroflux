@@ -23,6 +23,7 @@ var started_ms: int = 0
 @onready var target_core: TargetCore = $TargetCore
 @onready var camera: Camera2D = $Camera2D
 @onready var hint: Label = $HUD/Hint
+@onready var map_button: Button = $HUD/MapButton
 
 
 func _ready() -> void:
@@ -34,6 +35,8 @@ func _ready() -> void:
 		tendril.tendril_released.connect(_on_tendril_released)
 	if target_core:
 		target_core.core_activated.connect(_on_target_activated)
+	if map_button:
+		map_button.pressed.connect(_on_map_pressed)
 	if has_node("Tooth"):
 		$Tooth.add_to_group("tooth")
 	if has_node("Roof"):
@@ -124,6 +127,10 @@ func _on_tendril_stretched(_disp: Vector2, _ratio: float) -> void:
 
 func _on_tendril_released(_impulse: Vector2) -> void:
 	pass
+
+
+func _on_map_pressed() -> void:
+	GameManager.open_level_select()
 
 
 func _on_target_activated() -> void:

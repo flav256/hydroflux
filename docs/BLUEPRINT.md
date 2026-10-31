@@ -31,7 +31,25 @@ Two dots, inside the volume, never a mouth or brows.
 | Flight | Leaving the vine, moving fast | They narrow along the motion and then fade. The drop is water again |
 | Fall | A long drop down a shaft | They look down and open a little. No panic face |
 
-Waiting, near, and held are in the game. Flight and fall are next.
+Waiting, near, held, flight, and fall are in the game. The eyes fade into the water during flight and look down during a long fall.
+
+### Level 0 liquid response
+
+Gloop stays one main `RigidBody2D`. Its response comes from the incoming speed along the contact normal and the surface normal, not from total speed alone. Tangential speed carries water along a face; normal speed controls the splash.
+
+| Contact | Desired response | Recovery |
+| --- | --- | --- |
+| Gentle contact | The body squashes and settles. No detached beads. | Returns to its round form while staying supported by the surface. |
+| Firm contact | The body spreads along the face and sheds a few small water beads. | Beads arc under gravity, are pulled toward Gloop by surface tension, and merge when they reach it. No bead becomes a second full physics body. |
+| Hard contact | A wider splash and a short, visible split. The core mass remains one body. | Detached beads rejoin; the main drop reforms before it continues. No lasting loss of water. |
+| Horizontal floor or ledge | Spread sideways, then gather into one supported drop. | It remains on the surface; it must not repeatedly bounce or re-enter splash. |
+| Vertical wall | Flatten against the wall and glide down under gravity. | It gathers at an edge or when motion ends, then continues as one drop. |
+| Incline | Follow the face in gravity's tangent direction. Shallow slopes allow gathering; steep slopes carry a glide. | The drop rounds up when it reaches a resting place or leaves the face. |
+| Ceiling | Spread along the underside and cling briefly. | Slowly gather into one drop, then detach and fall. No indefinite ceiling film. |
+
+Use incoming normal impact speed for the gentle/firm/hard thresholds. Starting values: below 70 px/s, squash without a film; 70–159, spread without satellites; 160–519, spread with two returning beads; 520 and above, a wider split with five returning beads. Tune them in the room, not as hidden constants. A surface film grows over about 0.24 seconds, spans roughly 5.6 drop-radii on a wall and up to 12.4 drop-radii on a horizontal face, and gathers slowly enough to feel viscous. Detached beads use small-mass visual physics (gravity, drag, and attraction) and merge back; they do not collide as independent Gloops. Surface attachment is temporary and ends when the ray can no longer find the face or when a ceiling drop reforms.
+
+Treat this as a state sequence: `AIRBORNE → IMPACT_SPREAD → SURFACE_GLIDE or REFORM → AIRBORNE/RESTING`. The bead satellites exist only during a firm or hard impact and are cleared when they merge. The Level 0 cone, wall, slope, floor, and ceiling all use the same contact rules with different normals and gravity tangents.
 
 ### Liquid, then the other temperatures
 
@@ -94,7 +112,7 @@ Later, same object, one change at a time:
 | Routes | `GameManager` | Chapter list, stars, save |
 | Sound | `AudioController` | Bed and cues. Recordings live in `assets/audio/` |
 
-`MicroDroplet` does not exist until The Thread. It is the same drop, smaller, attracted to its siblings when they are close. Sharp scenery does not shatter Level 0.
+`MicroDroplet` does not exist as an independent physics object until The Thread. Level 0 may show short-lived detached beads on a hard impact; they are light cues with gravity and surface-tension attraction, not a swarm or permanent breakage. Sharp scenery does not destroy the main Gloop body.
 
 ## Stack
 
@@ -118,7 +136,16 @@ Drops use mask `13` (rock, vine, well).
 
 A light forms on the tooth, falls, and sits in the vine. Pull back, release, the vine throws it into the well. Stars and a short chime. The bed is the recorded water loop.
 
-That room is done enough to build on. Do not add a second drop, a barrier tutorial, or a text overlay to it.
+Level 0 stays the active build until it reaches game-level quality. Do not start Level 1 until one full run from the menu through formation, membrane, launch, surface response, miss/retry, and well activation works without script errors or a stuck drop. Keep the room to one main drop; do not add a barrier tutorial or paragraph text.
+
+The quality pass covers four connected parts:
+
+- **Style:** silhouettes, water light, motion, and sound should read as one authored world.
+- **Behavior and physics:** the drop forms, seats, follows a pulled membrane, launches, responds by impact normal and surface orientation, spreads, glides, briefly splits on hard impact, reforms, clings to a ceiling before falling, and recovers after a miss without getting trapped.
+- **Interface:** a first-time player can discover the membrane through the room and its short hint line; touch and mouse both work; a visible map control returns to the chapter list.
+- **Finish:** the well gives clear arrival feedback, awards and saves the result, and returns cleanly to the level list.
+
+Keep the checks and remaining work in `docs/ROADMAP.md`. Level 1 is gated on all Level 0 exit checks passing in a real playthrough.
 
 ## Non-goals
 

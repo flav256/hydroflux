@@ -59,13 +59,19 @@ func _ready() -> void:
 	update_visual_curve()
 
 
+func _exit_tree() -> void:
+	var tree := get_tree()
+	if tree != null and tree.physics_frame.is_connected(_on_physics_frame):
+		tree.physics_frame.disconnect(_on_physics_frame)
+
+
 func _input(event: InputEvent) -> void:
 	# Listen before GUI controls. The cavern ColorRect used to swallow the click.
 	if event is InputEventMouseButton:
 		var mouse := event as InputEventMouseButton
 		if mouse.button_index != MOUSE_BUTTON_LEFT:
 			return
-		var local_mouse := _mouse_local()
+		var local_mouse := InputManager.event_local_position(mouse, self)
 		if mouse.pressed:
 			if _distance_to_curve(local_mouse) <= grab_radius:
 				_begin_drag(local_mouse, -1)
@@ -74,11 +80,11 @@ func _input(event: InputEvent) -> void:
 			_release_tendril()
 			get_viewport().set_input_as_handled()
 	elif event is InputEventMouseMotion and is_dragged and active_touch_index == -1:
-		_handle_drag(_mouse_local())
+		_handle_drag(InputManager.event_local_position(event, self))
 		get_viewport().set_input_as_handled()
 	elif event is InputEventScreenTouch:
 		var touch := event as InputEventScreenTouch
-		var local_pos := _pointer_local(touch.position)
+		var local_pos := InputManager.event_local_position(touch, self)
 		if touch.pressed:
 			if not is_dragged and _distance_to_curve(local_pos) <= grab_radius:
 				_begin_drag(local_pos, touch.index)
@@ -89,17 +95,8 @@ func _input(event: InputEvent) -> void:
 	elif event is InputEventScreenDrag and is_dragged:
 		var drag := event as InputEventScreenDrag
 		if drag.index == active_touch_index:
-			_handle_drag(_pointer_local(drag.position))
+			_handle_drag(InputManager.event_local_position(drag, self))
 			get_viewport().set_input_as_handled()
-
-
-func _mouse_local() -> Vector2:
-	return to_local(get_global_mouse_position())
-
-
-func _pointer_local(viewport_pos: Vector2) -> Vector2:
-	var world: Vector2 = get_viewport().get_canvas_transform().affine_inverse() * viewport_pos
-	return to_local(world)
 
 
 func _begin_drag(local_pos: Vector2, touch_index: int) -> void:

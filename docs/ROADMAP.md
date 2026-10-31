@@ -15,6 +15,7 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 - [x] Recorded water for the bed and the cues.
 - [x] Stars, points, save.
 - [x] HTML5 on GitHub Pages. One tap starts the sound. A phone stays sideways.
+- [ ] Rebuild and verify the current HTML5 page after the Gloop physics changes. The published page currently opens Level 0 without a visible drop; direct Level 0 runs spawn it.
 - [x] Liquid hitting the Level 0 cone splashes and runs down the face instead of tumbling.
 - [x] Eyes in flight and in a long fall
 - [x] Hand-drawn silhouette plates instead of generated polygons
@@ -25,16 +26,17 @@ The membrane stays. This pass finishes the style, behavior, interface, and physi
 
 - [x] In flight the eyes narrow and fade. In a long fall they look down.
 - [x] The Level 0 cone splashes and the drop runs down the face.
-- [x] Read contact normal speed separately from tangent speed; gentle impacts squash, firm/hard impacts spread. Thresholds are exported for tuning.
+- [x] Capture pre-solver velocity and read its normal speed separately from tangent speed; gentle impacts squash, firm/hard impacts spread. Thresholds are exported for tuning.
 - [x] Firm impacts emit a few temporary beads; hard impacts emit a short split. Beads are attracted back to the one main Gloop body.
 - [x] Ceiling contact spreads, waits briefly, reforms slowly, and drops as one body.
-- [ ] Tune all surface responses in a visible Level 0 playthrough. Initial target is a wider, slower viscous film; broad flat faces gather at no more than 0.9 spread units per second.
-- [ ] Horizontal faces spread and gather without bounce loops.
-- [ ] Vertical faces cling and glide down under gravity.
-- [ ] Slopes carry the drop along gravity's tangent, with shallow slopes allowing it to gather.
+- [ ] Tune all surface responses in a visible Level 0 playthrough. Current target is a 6–13.2 radius span and no more than 0.52 spread units/second on broad faces and shallow inclines.
+- [ ] Horizontal faces spread and gather without bounce loops. Collision probe entered film at the expected upward-facing normal (spread 0.58 at 1.2 s; gathered back to one drop by 3.8 s); visible feel and bounce behavior still need tuning.
+- [ ] Vertical faces cling and glide down under gravity. Collision probe entered film with a horizontal normal (spread 0.89 at 1.2 s) and was still flowing lower on the wall at 3.8 s; visible glide speed and release need tuning.
+- [ ] Slopes carry the drop along gravity's tangent, with shallow slopes allowing it to gather. Collision probe entered film with the expected diagonal normal (spread 0.58 at 1.2 s); it flowed to the lower edge by 3.8 s. Recheck on the authored Level 0 surfaces.
+- [x] Ceiling contact spreads, clings through the hold, gathers, then falls. A probe using the actual Level 0 roof now confirms impact-normal orientation, a full cling, gradual reformation, and detachment into a fall by 3.8 s. Still needs visible feel tuning.
 - [x] Use authored silhouette plates for Level 0 scenery, with collision geometry kept separate.
 - [x] Directly loading Level 0 spawns one Gloop after formation; no GDScript errors.
-- [ ] Verify the menu-to-Level-0 handoff in a full visible playthrough.
+- [ ] Verify the menu-to-Level-0 handoff in the current working build. The published Pages build was played through Splash → Chapter 1 → Level 0; it predates these local changes.
 - [ ] Complete the full loop: seat, pull, launch, miss and retry, then activate the well.
 - [x] Disconnect membrane physics callbacks on teardown; clean shutdown no longer calls freed level nodes.
 - [x] Keep a visible route from Level 0 back to the chapter list.

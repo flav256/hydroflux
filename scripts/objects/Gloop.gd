@@ -18,7 +18,7 @@ signal detached()
 @export var bead_impact_threshold: float = 160.0
 @export var split_impact_threshold: float = 520.0
 @export var spread_duration: float = 0.24
-@export var surface_reform_rate: float = 0.9
+@export var surface_reform_rate: float = 0.52
 @export var ceiling_hold_duration: float = 1.0
 @export var ceiling_reform_rate: float = 0.52
 
@@ -66,6 +66,7 @@ var split_spots: Array[Vector2] = []
 var touch_kind: String = ""
 var touch_normal: Vector2 = Vector2.ZERO
 var touch_impact_speed: float = 0.0
+var velocity_before_contact: Vector2 = Vector2.ZERO
 var film_spread: float = 0.0
 var film_flat: float = 1.0
 var film_normal: Vector2 = Vector2.UP
@@ -127,6 +128,7 @@ func _physics_process(delta: float) -> void:
 	_live(delta)
 	_viscosity(delta)
 	previous_position = global_position
+	velocity_before_contact = linear_velocity
 	queue_redraw()
 
 
@@ -484,7 +486,8 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		if weight <= rank:
 			continue
 		var normal: Vector2 = state.transform.basis_xform(state.get_contact_local_normal(i))
-		var contact: Vector2 = state.transform * state.get_contact_local_position(i)
+		# Godot returns the body's contact position in world coordinates already.
+		var contact: Vector2 = state.get_contact_local_position(i)
 		var toward := state.transform.origin - contact
 		if normal.dot(toward) < 0.0:
 			normal = -normal
@@ -493,7 +496,10 @@ func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
 		rank = weight
 		touch_kind = kind
 		touch_normal = normal.normalized()
-		touch_impact_speed = maxf(-state.linear_velocity.dot(touch_normal), 0.0)
+	var incoming := velocity_before_contact
+	if incoming.length_squared() < 0.01:
+		incoming = state.linear_velocity
+	touch_impact_speed = maxf(-incoming.dot(touch_normal), 0.0)
 
 
 func _contact_kind() -> String:
@@ -546,7 +552,7 @@ func flow_on_surface(delta: float) -> void:
 	else:
 		if is_ceiling:
 			gather = minf(gather, ceiling_reform_rate)
-		elif flat > 0.82:
+		elif flat > 0.55:
 			gather = minf(gather, surface_reform_rate)
 		film_spread = move_toward(film_spread, 0.0, gather * delta)
 	var space := get_world_2d().direct_space_state
@@ -606,7 +612,7 @@ func _draw_film() -> void:
 	var tangent := Vector2(normal.y, -normal.x)
 	if tangent.dot(Vector2.DOWN) < 0.0:
 		tangent = -tangent
-	var wide := lerpf(base_radius, base_radius * lerpf(2.8, 6.2, film_flat), film_spread)
+	var wide := lerpf(base_radius, base_radius * lerpf(3.0, 6.6, film_flat), film_spread)
 	var thick := lerpf(base_radius * 0.92, base_radius * lerpf(0.7, 0.28, film_flat), film_spread)
 	var body := PackedVector2Array()
 	for i in 24:

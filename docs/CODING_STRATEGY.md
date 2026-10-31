@@ -11,7 +11,7 @@ How we implement the blueprint without melting mobile GPUs or the scene tree.
 5. **Godot 4 typed GDScript.** `bool` not `boolean`, `float` not `number`, `get_node_or_null`, typed arrays when cheap.
 6. **Mobile first.** CPUParticles2D, `gl_compatibility`, few PointLights, no per-frame mesh rebuilds beyond the tendril Line2D.
 7. **POC is archive.** `poc/gemini-level-0` is the Gemini dump. Production code lives at `res://`. Do not “fix” the POC in place.
-8. **Surface response is normal-aware.** Use incoming normal speed for impact strength and gravity projected onto the surface tangent for glide. Keep thresholds exported and tune them in Level 0.
+8. **Surface response is normal-aware.** Capture velocity before contact resolution; use its normal component for impact strength and gravity projected onto the surface tangent for glide. Godot returns the body's contact point in world coordinates, so orient the normal against that point without transforming it again. Keep thresholds exported and tune them in Level 0.
 9. **Scope tree callbacks.** Disconnect `SceneTree` signals when a node exits the tree so scene changes and shutdown do not call freed nodes.
 
 ## Implementation order (always)

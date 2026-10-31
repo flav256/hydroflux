@@ -1,4 +1,4 @@
-[gd_scene load_steps=10 format=3 uid="uid://hydrofluxlvl00"]
+[gd_scene load_steps=12 format=3 uid="uid://hydrofluxlvl00"]
 
 [ext_resource type="Script" path="res://scripts/levels/Level_00.gd" id="1_lvl"]
 [ext_resource type="PackedScene" path="res://scenes/objects/Gloop.tscn" id="2_droplet"]
@@ -6,6 +6,8 @@
 [ext_resource type="PackedScene" path="res://scenes/objects/TargetCore.tscn" id="4_target"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
 [ext_resource type="Shader" path="res://assets/shaders/cavern_glow.gdshader" id="6_glow"]
+[ext_resource type="Texture2D" path="res://assets/art/level_00_interior.svg" id="7_interior_art"]
+[ext_resource type="Texture2D" path="res://assets/art/level_00_frame.svg" id="8_frame_art"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
@@ -37,14 +39,26 @@ offset_right = 1280.0
 offset_bottom = 720.0
 color = Color(1, 1, 1, 1)
 
+[node name="HandDrawnInterior" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("7_interior_art")
+centered = false
+
 [node name="SilhouetteFrame" type="Node2D" parent="."]
 z_index = 4
 
+[node name="HandDrawnFrame" type="Sprite2D" parent="SilhouetteFrame"]
+texture_filter = 1
+texture = ExtResource("8_frame_art")
+centered = false
+
 [node name="Ceiling" type="Polygon2D" parent="SilhouetteFrame"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 78, 980, 96, 760, 54, 520, 110, 340, 48, 180, 92, 0, 64)
 
 [node name="Ground" type="Polygon2D" parent="SilhouetteFrame"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(0, 720, 0, 640, 160, 655, 240, 600, 360, 668, 700, 630, 820, 680, 1280, 610, 1280, 720)
 
@@ -60,6 +74,7 @@ collision_mask = 2
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
 
 [node name="Polygon2D" type="Polygon2D" parent="Tooth/Shape"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
 
@@ -74,6 +89,7 @@ polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 78, 980, 96, 760, 54, 520, 110
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/Phase1Basin"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 
@@ -81,6 +97,7 @@ polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 polygon = PackedVector2Array(480, 720, 500, 500, 512, 484, 528, 484, 540, 500, 560, 720)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CentralBarrier"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(480, 720, 500, 500, 520, 470, 540, 500, 560, 720)
 
@@ -88,6 +105,7 @@ polygon = PackedVector2Array(480, 720, 500, 500, 520, 470, 540, 500, 560, 720)
 polygon = PackedVector2Array(860, 720, 880, 620, 1120, 620, 1140, 720)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/RightPlatform"]
+visible = false
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(860, 720, 880, 620, 1120, 620, 1140, 720)
 

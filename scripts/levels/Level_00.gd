@@ -12,13 +12,15 @@ enum LevelPhase {
 @export var auto_spawn_interval: float = 4.0
 
 var current_phase: LevelPhase = LevelPhase.PHASE_1_OBSERVATION
-var spawn_timer: float = 0.0
 var victory_started: bool = false
+var live_drop: FluidDroplet
+var respawn_wait: float = 0.0
 
 @onready var spawner: Marker2D = $Spawner_Phase1
 @onready var tendril: ElasticTendril = $ElasticTendril
 @onready var target_core: TargetCore = $TargetCore
 @onready var camera: Camera2D = $Camera2D
+@onready var hint: Label = $HUD/Hint
 
 
 func _ready() -> void:
@@ -33,25 +35,18 @@ func _ready() -> void:
 
 func spawn_first_drop() -> void:
 	_spawn_drop(true)
-	if current_phase == LevelPhase.PHASE_1_OBSERVATION:
-		get_tree().create_timer(4.2).timeout.connect(_advance_to_phase_2)
-
-
-func _advance_to_phase_2() -> void:
 	current_phase = LevelPhase.PHASE_2_TENDRIL_INTRO
-	if tendril:
-		var tween := create_tween().set_loops(3)
-		tween.tween_property(tendril, "modulate", Color(1.5, 1.5, 1.5, 1.0), 0.6)
-		tween.tween_property(tendril, "modulate", Color.WHITE, 0.6)
-	_spawn_drop(true)
 
 
 func _spawn_drop(form: bool) -> void:
 	if droplet_scene == null or spawner == null:
 		return
+	if is_instance_valid(live_drop) and not live_drop.is_absorbed:
+		return
 	var droplet: FluidDroplet = droplet_scene.instantiate()
 	droplet.global_position = spawner.global_position
 	add_child(droplet)
+	live_drop = droplet
 	if form and droplet.has_method("begin_formation"):
 		droplet.begin_formation()
 
@@ -59,11 +54,30 @@ func _spawn_drop(form: bool) -> void:
 func _process(delta: float) -> void:
 	if victory_started:
 		return
-	if current_phase >= LevelPhase.PHASE_2_TENDRIL_INTRO and target_core and not target_core.is_active:
-		spawn_timer += delta
-		if spawn_timer >= auto_spawn_interval:
-			spawn_timer = 0.0
+	var lost := not is_instance_valid(live_drop) or live_drop.is_absorbed or live_drop.global_position.y > 820.0
+	if lost and target_core and not target_core.is_active:
+		respawn_wait += delta
+		if respawn_wait > 1.1:
+			respawn_wait = 0.0
 			_spawn_drop(true)
+	else:
+		respawn_wait = 0.0
+	if hint:
+		hint.text = _hint_line()
+
+
+func _hint_line() -> String:
+	if victory_started:
+		return "The well is lit."
+	if not is_instance_valid(live_drop) or live_drop.is_forming:
+		return "A light is forming."
+	if tendril and tendril.is_dragged:
+		return "Release."
+	if live_drop.global_position.y > 680.0:
+		return "Pull back, away from the ring, then let go."
+	if live_drop.linear_velocity.length() < 45.0 and live_drop.global_position.y > 320.0:
+		return "Pull the vine back, then release."
+	return "Let it reach the vine."
 
 
 func _on_tendril_stretched(_disp: Vector2, _ratio: float) -> void:
@@ -80,7 +94,7 @@ func _on_target_activated() -> void:
 		return
 	victory_started = true
 	var tween := create_tween().set_parallel(true)
-	tween.tween_property($CanvasModulate, "color", Color(0.18, 0.22, 0.25, 1.0), 2.0)
+	tween.tween_property($CanvasModulate, "color", Color(1.4, 1.5, 1.55, 1.0), 2.0)
 	if camera:
 		tween.tween_property(camera, "zoom", Vector2(1.1, 1.1), 2.5).set_trans(Tween.TRANS_CUBIC)
 	on_level_complete()

@@ -8,7 +8,7 @@ signal fluid_received(current_amount: int, required_amount: int)
 
 @export var required_fluid_volume: int = 1
 @export var glow_color: Color = Color(0.02, 0.71, 0.83, 1.0)
-@export var core_radius: float = 32.0
+@export var core_radius: float = 42.0
 
 var current_volume: int = 0
 var is_active: bool = false
@@ -29,14 +29,12 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	var pulse := sin(pulse_time * 2.5) * 0.15 + 0.85
 	var fill_ratio := float(current_volume) / float(maxi(1, required_fluid_volume))
-	draw_circle(Vector2.ZERO, core_radius + 4.0, Color(0.05, 0.06, 0.08))
-	draw_arc(Vector2.ZERO, core_radius, 0.0, TAU, 32, Color(0.2, 0.25, 0.3), 3.0)
-	if fill_ratio > 0.0:
-		var inner_rad := core_radius * 0.85 * fill_ratio * pulse
-		draw_circle(Vector2.ZERO, inner_rad, Color(glow_color, 0.8))
-		draw_circle(Vector2.ZERO, inner_rad * 0.5, Color.WHITE)
-	else:
-		draw_circle(Vector2.ZERO, core_radius * 0.22 * pulse, Color(glow_color, 0.35))
+	draw_circle(Vector2.ZERO, core_radius * 1.8, Color(glow_color, 0.08 * pulse))
+	draw_circle(Vector2.ZERO, core_radius + 10.0, Color(0, 0, 0, 1))
+	draw_arc(Vector2.ZERO, core_radius + 2.0, 0.0, TAU, 48, Color(glow_color, 0.85 * pulse), 2.0)
+	var inner := core_radius * (0.28 + 0.6 * fill_ratio) * pulse
+	draw_circle(Vector2.ZERO, inner, Color(glow_color, 0.35 + 0.5 * fill_ratio))
+	draw_circle(Vector2.ZERO, inner * 0.45, Color(1, 1, 1, 0.35 + 0.6 * fill_ratio))
 
 
 func _on_body_entered(body: Node2D) -> void:

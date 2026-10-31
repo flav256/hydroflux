@@ -1,75 +1,72 @@
-# HydroFlux — Roadmap
+# HydroFlux — Development roadmap
 
-Status: **Level 0 scaffolded from the Gemini POC**. Next: run in Godot, then water-stream feel, then levels.
+Design lives in `docs/NARRATIVE.md`. This file is the order of work.
 
-## Now — Milestone 0 (this repo)
+Godot 4 can ship to the web, the App Store, and Google Play. The game is not store-ready yet. The path is: finish Level 0 by hand, export HTML5, then mobile signing.
 
-- [x] Godot 4 project tree (`assets`, `scenes`, `scripts`)
-- [x] Production scripts: tendril, droplet (form/detach/squash), target, Level 0 phases
-- [x] Autoloads: GameManager, AudioController, InputManager
-- [x] Main menu → Level 0
-- [ ] Open in Godot 4.3+ and play Level 0 end-to-end
-- [ ] Drop in ambient + snap audio under `assets/audio/`
-- [ ] Silhouette art pass (replace debug polygons)
+## Where we are
 
-## Milestone 1 — Playable vertical slice (Level 0 shippable)
+- [x] Project, menu, Level 0 cavern, glow, black silhouettes
+- [x] Membrane holds a drop on its upper side and throws on release
+- [x] One-line tutorial on Level 0
+- [ ] Play Level 0 from `play.command` (stays open until the window is closed)
+- [ ] Record or source the spa / drip / snap / well sounds
+- [ ] Hand-drawn silhouette plates instead of generated polygons
 
-- Tune sling so a downward pull consistently clears the barrier
-- Stalactite drip animation (shader or sprite frames)
-- Pooling: 2–4 droplets in the left basin look like a small volume of water
-- Victory chime + cavern light ripple
-- HTML5 export (`gl_compatibility`, single-thread) + itch.io draft
+## 0 — Level 0 you can finish with a thumb
 
-**Exit:** a stranger can finish Level 0 on phone without instructions.
+- Pull-back throw lands in the well without a perfect angle
+- Hint line only, then silence on the next attempt if they already understood
+- Drip, vine, snap, well: four sounds
+- Double-click `play.command`, or Godot → F5
 
-## Milestone 2 — Fluid language
+**Exit:** someone else finishes Level 0 with no spoken help.
 
-- Droplet clusters with soft collision damping
-- Merge-on-contact (optional: combine radii, cap count)
-- Air jets / vents (tap impulse fields)
-- Second tendril in one scene
-- Simple refraction / glow shader on the liquid
+## 1 — The Vein and The Thread
 
-**Exit:** water reads as a stream, not only isolated balls.
+Chapters 1 and 2 from the narrative.
 
-## Milestone 3 — Campaign spine
+- Second membrane in one room
+- A counted gate (two drops, not one)
+- Drops that share a pace but do not merge yet
 
-| Level | Teaching |
-| --- | --- |
-| 00 | Gravity, one tendril, one core |
-| 01 | Timing: drop while vine is loaded |
-| 02 | Two tendrils, split path |
-| 03 | Air jet + tendril |
-| 04 | Volume: fill the core with a pool, not one drop |
-| 05 | Darkness: light only follows the water |
+## 2 — Breath and Cup
 
-- Level select, unlocks already stubbed in `GameManager`
-- Pause / restart HUD
+- Vent: tap and hold
+- Drops that merge into a pool with one surface
+- A well that wants volume
 
-## Milestone 4 — Mobile store path
+## 3 — The Dark
 
-- iOS + Android export presets
-- 120 Hz input sampling, no physics hitch on mid devices
-- Haptics on snap / absorb
-- Accessibility: color-blind safe cyan+white cores, larger grab radius option
+- Background glow fades. Miss the drop and the room goes quiet and black.
+- No new control. The same vine, with the safety of the glow removed.
 
-## Milestone 5 — Atmosphere pack
+## 4 — Online
 
-- Hand-drawn cavern plates
-- Cello / water SFX set
-- Dynamic bloom masks
-- Trailer scene (no gameplay)
+- Godot HTML5 export, `gl_compatibility`, single thread
+- Zip and publish on itch.io at 1280×720
+- This is the first public build. No store account required.
 
-## Explicit later / maybe never
+## 5 — Phones
 
-- True SPH or Navier–Stokes
-- User-generated levels
-- Narrative text chapters
+- Export presets for iOS and Android
+- Apple Developer account, signing, and a privacy label for the App Store
+- Play Console listing for Android
+- Haptics on snap and on the well
+- Larger grab, tested on a real phone
 
-## Suggested next session (after GitHub)
+**Exit:** TestFlight and an internal Android track, not a public store launch, until Level 0 and Level 1 feel right on a thumb.
 
-1. Install Godot 4.3+ and import this folder.
-2. F6 `scenes/levels/Level_00.tscn`.
-3. Tune launch so Phase 3 is reliable.
-4. Add two audio files: drip + snap.
-5. Start Level 01 scene cloned from Level 00.
+## 6 — Ember and The Fall
+
+Only after the first five chapters are in the online build.
+
+- Heat dries a pool. Steam rises and condenses.
+- A sheet of water guided by a lip, not a single drop
+- Sound: hiss, crackle, a thinner room tone
+
+## Not in this roadmap
+
+- A real fluid solver
+- Level editors
+- Paragraphs of story text

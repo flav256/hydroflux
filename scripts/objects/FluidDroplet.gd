@@ -9,7 +9,7 @@ signal detached()
 
 @export var droplet_color: Color = Color(0.02, 0.71, 0.83, 1.0)
 @export var core_color: Color = Color(1.0, 1.0, 1.0, 0.95)
-@export var base_radius: float = 7.0
+@export var base_radius: float = 12.0
 @export var max_velocity_stretch: float = 1.8
 @export var form_duration: float = 0.85
 
@@ -17,11 +17,13 @@ var is_absorbed: bool = false
 var is_forming: bool = false
 var form_t: float = 0.0
 var splash_squash: float = 1.0
+var membrane_cooldown: float = 0.0
 
 @onready var light: PointLight2D = get_node_or_null("PointLight2D")
 
 
 func _ready() -> void:
+	add_to_group("fluid_droplet")
 	contact_monitor = true
 	max_contacts_reported = 4
 	gravity_scale = 1.15
@@ -39,7 +41,13 @@ func begin_formation() -> void:
 	AudioController.play(AudioController.Cue.DROP_FORM, randf_range(0.9, 1.1))
 
 
+func ignore_membrane(duration: float) -> void:
+	membrane_cooldown = duration
+
+
 func _physics_process(delta: float) -> void:
+	if membrane_cooldown > 0.0:
+		membrane_cooldown = maxf(membrane_cooldown - delta, 0.0)
 	if is_absorbed:
 		return
 	if is_forming:
@@ -68,16 +76,20 @@ func _draw() -> void:
 	var squash := (1.0 / sqrt(stretch)) * splash_squash
 	var angle := 0.0 if is_forming or freeze else linear_velocity.angle()
 	draw_set_transform(Vector2.ZERO, angle, Vector2(stretch, squash))
-	draw_circle(Vector2.ZERO, base_radius * 1.55, Color(droplet_color, 0.22))
-	draw_circle(Vector2.ZERO, base_radius * 1.2, Color(droplet_color, 0.45))
+	draw_circle(Vector2.ZERO, base_radius * 3.4, Color(droplet_color, 0.08))
+	draw_circle(Vector2.ZERO, base_radius * 2.2, Color(droplet_color, 0.16))
+	draw_circle(Vector2.ZERO, base_radius * 1.45, Color(droplet_color, 0.45))
 	draw_circle(Vector2.ZERO, base_radius, droplet_color)
-	draw_circle(Vector2.ZERO, base_radius * 0.42, core_color)
+	draw_circle(Vector2.ZERO, base_radius * 0.55, Color(0.85, 1.0, 1.0, 0.95))
+	draw_circle(Vector2.ZERO, base_radius * 0.22, core_color)
 
 
 func apply_launch_impulse(impulse: Vector2) -> void:
 	if is_forming:
 		_detach()
+	freeze = false
 	linear_velocity = Vector2.ZERO
+	angular_velocity = 0.0
 	apply_central_impulse(impulse)
 
 
@@ -85,7 +97,10 @@ func absorb_into_target() -> void:
 	if is_absorbed:
 		return
 	is_absorbed = true
-	freeze = true
+	# freeze/collision changes are illegal inside a physics callback.
+	set_deferred("freeze", true)
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
 	var tween := create_tween().set_parallel(true)
 	tween.tween_property(self, "scale", Vector2.ZERO, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
 	tween.tween_property(self, "modulate:a", 0.0, 0.35)

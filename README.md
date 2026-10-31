@@ -6,15 +6,17 @@ Silhouette caverns, bioluminescent cyan water, elastic vines that sling droplets
 
 ## Run locally
 
-1. Install [Godot 4.3+](https://godotengine.org/download).
-2. Project Manager → **Import** → this folder’s `project.godot`.
-3. Play (**F5**) for the menu, or open `scenes/levels/Level_00.tscn` and **F6**.
+Double-click `play.command` in Finder. Terminal owns the window, so it stays open until you close the game.
 
-Controls: click/touch the pale vine, drag like a bowstring, release to launch a drop over the barrier into the cyan core.
+Or install [Godot 4.3+](https://godotengine.org/download), import `project.godot`, and press **F5**.
+
+The drop sits on the vine. Pull the vine back, away from the ring, then release.
 
 ## Layout
 
-See `docs/BLUEPRINT.md`, `docs/CODING_STRATEGY.md`, and `docs/ROADMAP.md`.
+- `docs/NARRATIVE.md` — chapters, sound, heat, and how water grows
+- `docs/ROADMAP.md` — build order, including web and the stores
+- `docs/BLUEPRINT.md`, `docs/CODING_STRATEGY.md`
 
 Gemini’s original Level 0 dump is kept under `poc/gemini-level-0/` and is not the running game.
 

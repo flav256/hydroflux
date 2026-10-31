@@ -5,20 +5,17 @@
 [ext_resource type="PackedScene" path="res://scenes/objects/ElasticTendril.tscn" id="3_tendril"]
 [ext_resource type="PackedScene" path="res://scenes/objects/TargetCore.tscn" id="4_target"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
+[ext_resource type="Shader" path="res://assets/shaders/cavern_glow.gdshader" id="6_glow"]
 
 [sub_resource type="Environment" id="Environment_glow"]
 background_mode = 3
-glow_enabled = true
-glow_levels/1 = 1.0
-glow_levels/2 = 0.8
-glow_levels/3 = 0.5
-glow_intensity = 1.4
-glow_strength = 1.15
-glow_bloom = 0.4
-glow_blend_mode = 0
+glow_enabled = false
 
 [sub_resource type="Gradient" id="Gradient_ambient_dust"]
 colors = PackedColorArray(0.02, 0.71, 0.83, 0.6, 0.02, 0.71, 0.83, 0)
+
+[sub_resource type="ShaderMaterial" id="Mat_glow"]
+shader = ExtResource("6_glow")
 
 [sub_resource type="WorldBoundaryShape2D" id="WorldBoundary_floor"]
 
@@ -30,21 +27,25 @@ droplet_scene = ExtResource("2_droplet")
 environment = SubResource("Environment_glow")
 
 [node name="CanvasModulate" type="CanvasModulate" parent="."]
-color = Color(0.04, 0.04, 0.05, 1)
+color = Color(1, 1, 1, 1)
 
 [node name="Background" type="ColorRect" parent="."]
-z_index = -10
+z_index = -20
+material = SubResource("Mat_glow")
 offset_right = 1280.0
 offset_bottom = 720.0
-color = Color(0.0352941, 0.0352941, 0.0431373, 1)
+color = Color(1, 1, 1, 1)
 
-[node name="NebulaGlow" type="ColorRect" parent="."]
-modulate = Color(0.0235294, 0.713726, 0.831373, 0.08)
-z_index = -9
-offset_left = 480.0
-offset_top = 80.0
-offset_right = 860.0
-offset_bottom = 360.0
+[node name="SilhouetteFrame" type="Node2D" parent="."]
+z_index = 4
+
+[node name="Ceiling" type="Polygon2D" parent="SilhouetteFrame"]
+color = Color(0, 0, 0, 1)
+polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 78, 980, 96, 760, 54, 520, 110, 340, 48, 180, 92, 0, 64)
+
+[node name="Ground" type="Polygon2D" parent="SilhouetteFrame"]
+color = Color(0, 0, 0, 1)
+polygon = PackedVector2Array(0, 720, 0, 640, 160, 655, 240, 600, 360, 668, 700, 630, 820, 680, 1280, 610, 1280, 720)
 
 [node name="CavernGeometry" type="StaticBody2D" parent="."]
 collision_layer = 1
@@ -54,29 +55,29 @@ collision_mask = 2
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CeilingStalactite"]
-color = Color(0.08, 0.09, 0.11, 1)
+color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
 
 [node name="Phase1Basin" type="CollisionPolygon2D" parent="CavernGeometry"]
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/Phase1Basin"]
-color = Color(0.08, 0.09, 0.11, 1)
+color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 
 [node name="CentralBarrier" type="CollisionPolygon2D" parent="CavernGeometry"]
-polygon = PackedVector2Array(480, 720, 500, 340, 520, 330, 540, 340, 560, 720)
+polygon = PackedVector2Array(480, 720, 500, 500, 520, 470, 540, 500, 560, 720)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CentralBarrier"]
-color = Color(0.06, 0.07, 0.08, 1)
-polygon = PackedVector2Array(480, 720, 500, 340, 520, 330, 540, 340, 560, 720)
+color = Color(0, 0, 0, 1)
+polygon = PackedVector2Array(480, 720, 500, 500, 520, 470, 540, 500, 560, 720)
 
 [node name="RightPlatform" type="CollisionPolygon2D" parent="CavernGeometry"]
-polygon = PackedVector2Array(840, 720, 860, 480, 1080, 480, 1120, 720)
+polygon = PackedVector2Array(860, 720, 880, 620, 1120, 620, 1140, 720)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/RightPlatform"]
-color = Color(0.08, 0.09, 0.11, 1)
-polygon = PackedVector2Array(840, 720, 860, 480, 1080, 480, 1120, 720)
+color = Color(0, 0, 0, 1)
+polygon = PackedVector2Array(860, 720, 880, 620, 1120, 620, 1140, 720)
 
 [node name="FloorKill" type="StaticBody2D" parent="."]
 position = Vector2(640, 780)
@@ -90,21 +91,19 @@ shape = SubResource("WorldBoundary_floor")
 position = Vector2(275, 160)
 
 [node name="ElasticTendril" parent="." instance=ExtResource("3_tendril")]
-position = Vector2(340, 430)
+position = Vector2(270, 400)
 anchor_left = Vector2(-90, 0)
 anchor_right = Vector2(100, 0)
 max_stretch_distance = 120.0
 spring_stiffness = 220.0
-launch_force_multiplier = 9.2
+launch_force_multiplier = 5.5
 
 [node name="TargetCore" parent="." instance=ExtResource("4_target")]
-position = Vector2(960, 440)
+position = Vector2(1000, 460)
 required_fluid_volume = 1
 
 [node name="Camera2D" type="Camera2D" parent="."]
 position = Vector2(640, 360)
-position_smoothing_enabled = true
-position_smoothing_speed = 3.5
 
 [node name="AmbientParticles" type="CPUParticles2D" parent="."]
 position = Vector2(640, 360)

@@ -25,11 +25,14 @@ Chapters 0–5 are the first game. Ember and The Fall are the second breath: the
 
 A stalactite forms one light. It settles on a black vine. Across a stone tooth, a ring waits. The only sentence on screen changes with the moment:
 
-- forming: “A light is forming.”
-- in the air: “Let it reach the vine.”
-- seated: “Pull the vine back, then release.”
-- while pulling: “Release.”
-- missed: “Pull back, away from the ring, then let go.”
+- forming: “A light gathers in the dark.”
+- leaving the tooth: “It lets go of the tooth.”
+- seated: “It waits in the curve.”
+- still waiting: “It looks for your hand.”
+- while pulling: “The vine holds its breath.”
+- in the air: “It is given to the air.”
+- on a surface: “It opens where it lands.” Then, if the face is level, “It finds the low place.” and “It is one drop again.” On a wall, “It spills, slowly.” On a slope, “It follows the slope.”
+- missed: “The dark takes it back.”
 - landed: “The well is lit.”
 
 ## Touch, not buttons

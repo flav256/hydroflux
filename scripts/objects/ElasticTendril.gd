@@ -15,6 +15,7 @@ signal droplet_launched(droplet: Node, velocity: Vector2)
 @export var grab_radius: float = 52.0
 @export var max_stretch_distance: float = 135.0
 @export var membrane_radius: float = 14.0
+@export var show_flight_path: bool = false
 
 @export_group("Elastic Physics")
 @export var spring_stiffness: float = 180.0
@@ -36,7 +37,7 @@ var grab_offset: Vector2 = Vector2.ZERO
 
 var curve_points: PackedVector2Array = PackedVector2Array()
 var prev_curve_points: PackedVector2Array = PackedVector2Array()
-var seated_drops: Array[FluidDroplet] = []
+var seated_drops: Array[Gloop] = []
 var seat_u: Dictionary = {}
 var seat_speed: Dictionary = {}
 var drop_is_seated: bool = false
@@ -47,6 +48,7 @@ var drop_is_seated: bool = false
 
 func _ready() -> void:
 	# Run after rigid bodies so the membrane can catch them the same frame.
+	add_to_group("membrane")
 	get_tree().physics_frame.connect(_on_physics_frame)
 	z_index = 5
 	rest_midpoint = (anchor_left + anchor_right) * 0.5 + Vector2(0.0, rest_sag)
@@ -137,7 +139,7 @@ func _release_tendril() -> void:
 		snap_audio.play()
 	AudioController.play_tendril_snap()
 	tendril_released.emit(impulse_vector)
-	var launched: Array[FluidDroplet] = []
+	var launched: Array[Gloop] = []
 	for drop in seated_drops:
 		if is_instance_valid(drop) and not drop.is_absorbed:
 			launched.append(drop)
@@ -205,7 +207,8 @@ func _draw() -> void:
 		var glow := Color(tension_glow_color, 0.45 + stretch_ratio * 0.4)
 		draw_circle(current_midpoint, 8.0, glow)
 		draw_circle(current_midpoint, 16.0, Color(glow, 0.28))
-		_draw_flight_dots()
+		if show_flight_path:
+			_draw_flight_dots()
 
 
 func _sample_quadratic_bezier(p0: Vector2, p1: Vector2, p2: Vector2, t: float) -> Vector2:
@@ -297,7 +300,7 @@ func _distance_to_curve(local_point: Vector2) -> float:
 
 
 func _support_droplets(dt: float) -> void:
-	var kept: Array[FluidDroplet] = []
+	var kept: Array[Gloop] = []
 	var kept_u: Dictionary = {}
 	var kept_speed: Dictionary = {}
 	if curve_points.size() < 2:
@@ -307,8 +310,8 @@ func _support_droplets(dt: float) -> void:
 		drop_is_seated = false
 		return
 	var gravity := Vector2(0.0, float(ProjectSettings.get_setting("physics/2d/default_gravity")))
-	for node in get_tree().get_nodes_in_group("fluid_droplet"):
-		var drop := node as FluidDroplet
+	for node in get_tree().get_nodes_in_group("gloop"):
+		var drop := node as Gloop
 		if drop == null or drop.is_absorbed or drop.is_forming or drop.freeze:
 			continue
 		if drop.membrane_cooldown > 0.0:
@@ -318,7 +321,9 @@ func _support_droplets(dt: float) -> void:
 		var closest := _closest_bezier_u(local)
 		var limit := membrane_radius + drop.base_radius
 		var already: bool = seat_u.has(id)
-		if not already and local.distance_to(_bezier(closest)) > limit + 20.0:
+		var prev := to_local(drop.previous_position)
+		var fell_through := _fell_onto_curve(prev, local)
+		if not already and not fell_through and local.distance_to(_bezier(closest)) > limit + 36.0:
 			continue
 		var u := closest if not already else float(seat_u[id])
 		var tangent := _bezier(clampf(u + 0.02, 0.0, 1.0)) - _bezier(clampf(u - 0.02, 0.0, 1.0))
@@ -330,12 +335,13 @@ func _support_droplets(dt: float) -> void:
 		var speed := 0.0 if not already else float(seat_speed.get(id, 0.0))
 		var impact := 0.0
 		if not already:
-			speed = drop.linear_velocity.dot(tangent) * 0.72
+			var falling := drop.linear_velocity.y > 30.0 or fell_through
+			speed = 0.0 if falling else drop.linear_velocity.dot(tangent) * 0.25
 			impact = drop.linear_velocity.length()
 			if not is_dragged:
 				midpoint_velocity += Vector2(0.0, minf(impact, 420.0) * 0.06)
 		speed += gravity.dot(tangent) * drop.gravity_scale * dt
-		speed *= 0.992
+		speed *= 0.955
 		if absf(tangent.dot(Vector2.DOWN)) < 0.06:
 			speed *= 0.9
 		u += (speed / span) * dt
@@ -347,6 +353,8 @@ func _support_droplets(dt: float) -> void:
 		drop.global_position = to_global(point + normal * limit)
 		drop.linear_velocity = Vector2.ZERO
 		drop.ride_surface(tangent * speed, impact)
+		var pull := current_midpoint - rest_midpoint if is_dragged else Vector2.ZERO
+		drop.feel(is_dragged, pull)
 		kept.append(drop)
 		kept_u[id] = u
 		kept_speed[id] = speed
@@ -360,6 +368,21 @@ func _support_droplets(dt: float) -> void:
 	drop_is_seated = seated_drops.size() > 0
 
 
+func catch_point() -> Vector2:
+	var mid := _bezier(0.5)
+	return to_global(mid + _bezier_up(0.5) * (membrane_radius + 16.0))
+
+
+func _fell_onto_curve(prev: Vector2, curr: Vector2) -> bool:
+	var span_left := minf(anchor_left.x, anchor_right.x) - 16.0
+	var span_right := maxf(anchor_left.x, anchor_right.x) + 16.0
+	if curr.x < span_left or curr.x > span_right:
+		return false
+	var above := prev.y <= _bezier(_closest_bezier_u(prev)).y + 10.0
+	var below := curr.y >= _bezier(_closest_bezier_u(curr)).y - 8.0
+	return above and below and curr.y >= prev.y
+
+
 func _upward_normal(index: int) -> Vector2:
 	var i := clampi(index, 0, curve_points.size() - 2)
 	var tangent: Vector2 = curve_points[i + 1] - curve_points[i]
@@ -371,10 +394,10 @@ func _upward_normal(index: int) -> Vector2:
 	return normal
 
 
-func _drops_on_membrane() -> Array[FluidDroplet]:
-	var found: Array[FluidDroplet] = []
-	for node in get_tree().get_nodes_in_group("fluid_droplet"):
-		var drop := node as FluidDroplet
+func _drops_on_membrane() -> Array[Gloop]:
+	var found: Array[Gloop] = []
+	for node in get_tree().get_nodes_in_group("gloop"):
+		var drop := node as Gloop
 		if drop == null or drop.is_absorbed or drop.is_forming:
 			continue
 		var local := to_local(drop.global_position)

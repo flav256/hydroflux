@@ -1,0 +1,605 @@
+extends RigidBody2D
+class_name Gloop
+
+## Bioluminescent drop: hang-and-form, detach, stretch-in-flight, splash squash.
+
+signal splashed(at_position: Vector2, normal: Vector2)
+signal absorbed_by_target(droplet: Gloop)
+signal detached()
+
+@export var droplet_color: Color = Color(0.02, 0.71, 0.83, 1.0)
+@export var core_color: Color = Color(1.0, 1.0, 1.0, 0.95)
+@export var base_radius: float = 12.0
+@export var max_velocity_stretch: float = 1.8
+@export var form_duration: float = 0.85
+
+enum Mood { QUIET, IMPATIENT, TICKLED, HELD }
+enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
+
+var is_absorbed: bool = false
+var is_forming: bool = false
+var form_t: float = 0.0
+var splash_squash: float = 1.0
+var membrane_cooldown: float = 0.0
+var surface_velocity: Vector2 = Vector2.ZERO
+var trail: Array[Vector2] = []
+
+var mood: Mood = Mood.QUIET
+var presence: float = 0.0
+var idle_time: float = 0.0
+var gaze: Vector2 = Vector2.ZERO
+var giggle: float = 0.0
+var seated_fresh: bool = false
+var held: bool = false
+var hold_dir: Vector2 = Vector2.ZERO
+var shape_y: float = 1.0
+var shape_v: float = 0.0
+var slosh: Vector2 = Vector2.ZERO
+var slosh_v: Vector2 = Vector2.ZERO
+var prev_motion: Vector2 = Vector2.ZERO
+var was_near: bool = false
+var settled: float = 0.0
+var glide_normal: Vector2 = Vector2.ZERO
+var glide_hold: float = 0.0
+var bead_pos: PackedVector2Array = PackedVector2Array()
+var bead_vel: PackedVector2Array = PackedVector2Array()
+var bead_life: PackedFloat32Array = PackedFloat32Array()
+var previous_position: Vector2 = Vector2.ZERO
+var on_membrane: bool = false
+var membrane_touch: float = 0.0
+var stone_grace: float = 0.0
+var moment: Moment = Moment.FREE
+var moment_t: float = 0.0
+var split_from: Vector2 = Vector2.ZERO
+var split_spots: Array[Vector2] = []
+var touch_kind: String = ""
+var touch_normal: Vector2 = Vector2.ZERO
+var film_spread: float = 0.0
+var film_flat: float = 1.0
+var film_normal: Vector2 = Vector2.UP
+var film_pos: Vector2 = Vector2.ZERO
+
+@onready var light: PointLight2D = get_node_or_null("PointLight2D")
+
+
+func _ready() -> void:
+	add_to_group("gloop")
+	contact_monitor = true
+	max_contacts_reported = 4
+	gravity_scale = 1.15
+	lock_rotation = true
+	var film := PhysicsMaterial.new()
+	film.friction = 0.04
+	film.bounce = 0.0
+	physics_material_override = film
+	body_entered.connect(_on_body_entered)
+	if light:
+		light.color = droplet_color
+		light.energy = 1.15
+	previous_position = global_position
+
+
+func begin_formation() -> void:
+	is_forming = true
+	form_t = 0.0
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	scale = Vector2(0.15, 0.35)
+	AudioController.play(AudioController.Cue.DROP_FORM, randf_range(0.9, 1.1))
+
+
+func ignore_membrane(duration: float) -> void:
+	membrane_cooldown = duration
+
+
+func _physics_process(delta: float) -> void:
+	if membrane_cooldown > 0.0:
+		membrane_cooldown = maxf(membrane_cooldown - delta, 0.0)
+	if is_absorbed:
+		return
+	if is_forming:
+		form_t += delta / maxf(form_duration, 0.05)
+		var eased := smoothstep(0.0, 1.0, clampf(form_t, 0.0, 1.0))
+		scale = Vector2(lerpf(0.15, 1.0, eased), lerpf(0.35, 1.05, eased))
+		if form_t >= 1.0:
+			_detach()
+	splash_squash = move_toward(splash_squash, 1.0, delta * 3.2)
+	if is_forming:
+		trail.clear()
+	elif Engine.get_physics_frames() % 2 == 0:
+		trail.append(global_position)
+		if trail.size() > 8:
+			trail.remove_at(0)
+	_glide_on_stone(delta)
+	_live(delta)
+	_viscosity(delta)
+	previous_position = global_position
+	queue_redraw()
+
+
+func _detach() -> void:
+	is_forming = false
+	scale = Vector2.ONE
+	freeze = false
+	collision_layer = 2
+	collision_mask = 13
+	global_position.y = maxf(global_position.y, 188.0)
+	linear_velocity = Vector2(0.0, 36.0)
+	stone_grace = 0.45
+	AudioController.play_drop_detach()
+	detached.emit()
+
+
+func ride_surface(velocity: Vector2, impact_speed: float) -> void:
+	surface_velocity = velocity
+	if impact_speed > 90.0:
+		splash_squash = clampf(1.0 - impact_speed / 1600.0, 0.48, 0.8)
+		shape_v -= clampf(impact_speed / 220.0, 0.4, 2.4)
+		slosh_v += Vector2(0.0, clampf(impact_speed / 900.0, 0.0, 1.6))
+
+
+func feel(is_held: bool, pull: Vector2) -> void:
+	seated_fresh = true
+	on_membrane = true
+	membrane_touch = 0.2
+	held = is_held
+	if moment == Moment.GLIDE:
+		moment = Moment.FREE
+		glide_normal = Vector2.ZERO
+	if pull.length_squared() > 4.0:
+		hold_dir = pull.normalized()
+
+
+func _draw() -> void:
+	if is_absorbed:
+		return
+	if moment == Moment.FILM:
+		_draw_film()
+		return
+	var motion := linear_velocity
+	if surface_velocity.length_squared() > motion.length_squared():
+		motion = surface_velocity
+	var now := Time.get_ticks_msec() * 0.001
+	var speed := motion.length()
+	var dir := Vector2.DOWN
+	if speed > 36.0:
+		dir = motion.normalized()
+	var stretch := clampf(speed / 480.0, 0.0, 0.9)
+	if freeze and not is_forming:
+		stretch = 0.06 + sin(now * 3.4) * 0.035
+	var step := 0
+	for point in trail:
+		step += 1
+		var local := to_local(point)
+		if local.length() < base_radius * 0.7:
+			continue
+		var fade := 1.0 - float(step) / float(trail.size() + 1)
+		var thread := local * 0.42
+		draw_line(thread, local, Color(droplet_color, 0.4 * fade), lerpf(1.1, 3.2, fade), true)
+		draw_circle(local, base_radius * lerpf(0.22, 0.48, fade), Color(droplet_color, 0.34 * fade))
+	draw_circle(Vector2.ZERO, base_radius * 3.3, Color(droplet_color, 0.07))
+	draw_circle(Vector2.ZERO, base_radius * 2.1, Color(droplet_color, 0.12))
+	var sx := shape_x_now()
+	var body := PackedVector2Array()
+	for i in 28:
+		var a := TAU * float(i) / 28.0
+		var n := Vector2(cos(a), sin(a))
+		var along := n.dot(dir)
+		var side := n - dir * along
+		var wide := base_radius * sx * splash_squash * (1.0 + stretch * 0.08)
+		var tall := base_radius * shape_y
+		var p := side * wide + dir * along * tall * (0.9 - stretch * 0.12)
+		if along < 0.0:
+			p += -dir * base_radius * (0.22 + stretch * 0.85) * (-along)
+		var neck := clampf((stretch - 0.18) / 0.55, 0.0, 1.0)
+		if along < 0.2 and along > -0.65:
+			var pinch := 1.0 - neck * 0.62 * (1.0 - absf(along + 0.15) / 0.5)
+			p = dir * p.dot(dir) + (p - dir * p.dot(dir)) * pinch
+		p += n * sin(a * 3.0 + now * 6.5) * base_radius * (0.035 + giggle * 0.07)
+		p += n * sin(a * 7.0 - now * 24.0) * base_radius * giggle * 0.055
+		if settled > 0.25 and speed < 42.0 and n.y > 0.15 and glide_normal == Vector2.ZERO:
+			var cap := base_radius * lerpf(1.02, 0.78, settled)
+			if p.y > cap:
+				p.y = lerpf(p.y, cap, settled)
+				p.x *= lerpf(1.0, 1.14, settled * n.y)
+		if glide_normal.length_squared() > 0.5:
+			var into := -global_transform.basis_xform_inv(glide_normal)
+			var depth := p.dot(into)
+			if depth > 0.0:
+				p -= into * depth * 0.7
+				var along_stone := Vector2(-into.y, into.x)
+				p += along_stone * depth * 0.35 * signf(p.dot(along_stone) + 0.001)
+		body.append(p)
+	draw_colored_polygon(body, droplet_color)
+	var inner := PackedVector2Array()
+	for i in 16:
+		var a := TAU * float(i) / 16.0
+		inner.append(slosh * 0.85 + Vector2(cos(a), sin(a)) * base_radius * 0.46 * Vector2(shape_x_now(), shape_y))
+	draw_colored_polygon(inner, Color(0.55, 0.96, 1.0, 0.55))
+	_draw_presence(now)
+	var glint := -dir * base_radius * 0.12 + Vector2(cos(now * 2.3), sin(now * 2.9)) * base_radius * 0.18
+	draw_circle(glint, base_radius * 0.36, Color(0.9, 1.0, 1.0, 0.92))
+	draw_circle(glint * 0.35, base_radius * 0.13, core_color)
+	for i in bead_pos.size():
+		var fade := clampf(bead_life[i] / 0.35, 0.0, 1.0)
+		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.4, fade), Color(droplet_color, 0.85 * fade))
+
+
+func apply_launch_impulse(impulse: Vector2) -> void:
+	if is_forming:
+		_detach()
+	freeze = false
+	surface_velocity = Vector2.ZERO
+	held = false
+	seated_fresh = false
+	linear_velocity = Vector2.ZERO
+	angular_velocity = 0.0
+	shape_v += clampf(impulse.length() / 380.0, 0.35, 1.7)
+	apply_central_impulse(impulse)
+
+
+func _viscosity(delta: float) -> void:
+	if freeze or is_forming or is_absorbed:
+		return
+	if moment == Moment.FILM:
+		return
+	var drag := 0.22
+	if moment == Moment.GLIDE:
+		drag = 2.15
+	elif on_membrane:
+		return
+	linear_velocity *= exp(-drag * delta)
+	if moment == Moment.GLIDE:
+		surface_velocity = linear_velocity
+
+
+func _live(delta: float) -> void:
+	membrane_touch = maxf(membrane_touch - delta, 0.0)
+	if membrane_touch <= 0.0:
+		on_membrane = false
+	var motion := linear_velocity
+	if surface_velocity.length_squared() > motion.length_squared():
+		motion = surface_velocity
+	var speed := motion.length()
+	var on_vine := seated_fresh
+	if not on_vine:
+		held = false
+	var near := false
+	if not is_forming and not is_absorbed:
+		near = global_position.distance_to(get_global_mouse_position()) < base_radius * 3.8
+	if near and not was_near and not held:
+		giggle = 1.0
+		shape_v += 0.9
+	was_near = near and not held
+	var tickled := near and not held and not is_forming
+	giggle = move_toward(giggle, 1.0 if tickled else 0.0, delta * (1.5 if tickled else 1.1))
+	var resting := on_vine and speed < 36.0 and not held and not is_forming
+	if resting and not near:
+		idle_time += delta
+	else:
+		idle_time = move_toward(idle_time, 0.0, delta * 2.4)
+	var show := false
+	var next := Mood.QUIET
+	if held and on_vine:
+		next = Mood.HELD
+		show = true
+	elif tickled:
+		next = Mood.TICKLED
+		show = true
+	elif resting and idle_time > 1.15:
+		next = Mood.IMPATIENT
+		show = true
+	mood = next
+	presence = move_toward(presence, 1.0 if show else 0.0, delta * (2.2 if show else 1.3))
+	var now := Time.get_ticks_msec() * 0.001
+	var gaze_target := Vector2.ZERO
+	if mood == Mood.IMPATIENT:
+		gaze_target = Vector2(sin(now * 0.52) * 1.15, -1.5 + sin(now * 0.8) * 0.22)
+	elif mood == Mood.HELD:
+		gaze_target = hold_dir * 1.2
+	elif mood == Mood.TICKLED:
+		gaze_target = Vector2(sin(now * 8.0) * 0.3, -0.4)
+	gaze = gaze.lerp(gaze_target, 1.0 - exp(-5.0 * delta))
+	settled = move_toward(settled, 1.0 if resting else 0.0, delta * 2.2)
+	var target_y := 1.0
+	var damp := 12.0
+	if moment == Moment.GLIDE:
+		target_y = 0.72
+		damp = 16.0
+	elif speed > 80.0:
+		target_y = 1.0 + clampf(speed / 720.0, 0.0, 0.62)
+		damp = 8.5
+	elif on_vine and speed < 80.0:
+		target_y = 0.94
+	if mood == Mood.HELD:
+		target_y = 0.98
+		damp = 18.0
+	shape_v += ((target_y - shape_y) * 58.0 - shape_v * damp) * delta
+	shape_y = clampf(shape_y + shape_v * delta, 0.45, 2.15)
+	var accel := (motion - prev_motion) / maxf(delta, 0.001)
+	prev_motion = motion
+	slosh_v += ((-accel * 0.0011) - slosh * 28.0 - slosh_v * 12.0) * delta
+	slosh = (slosh + slosh_v * delta).limit_length(base_radius * 0.34)
+	seated_fresh = false
+
+
+func shape_x_now() -> float:
+	return 1.0 / sqrt(maxf(shape_y, 0.42))
+
+
+func _draw_presence(now: float) -> void:
+	if presence < 0.03:
+		return
+	var open := 1.0
+	if mood == Mood.TICKLED:
+		open = 0.22
+	elif mood != Mood.HELD:
+		var phase := fposmod(now + 0.4, 3.6)
+		if phase < 0.14:
+			open = phase / 0.14
+		elif phase > 3.15:
+			open = (3.6 - phase) / 0.45
+	var gap := base_radius * 0.38
+	if mood == Mood.HELD:
+		gap = base_radius * 0.26
+	elif mood == Mood.IMPATIENT:
+		gap = base_radius * 0.44
+	var origin := slosh * 1.2 + Vector2(0.0, base_radius * 0.1)
+	var tilt := sin(now * 0.4) * 0.55 if mood == Mood.IMPATIENT else 0.0
+	var ink := Color(0.012, 0.03, 0.045, 0.95 * presence)
+	for side in [-1.0, 1.0]:
+		var pos := origin + Vector2(side * gap, tilt * side) + gaze * 0.12
+		if mood == Mood.TICKLED:
+			draw_arc(pos + Vector2(0.0, 0.45), 1.9, PI + 0.5, TAU - 0.5, 7, ink, 1.05, true)
+		else:
+			var ry := maxf(1.55 * open, 0.14)
+			_eye_disk(pos, 1.55, ry, ink)
+			if open > 0.4:
+				var pupil := gaze.limit_length(0.55)
+				_eye_disk(pos + Vector2(pupil.x * 0.45, pupil.y * 0.25), 0.55, maxf(0.5 * open, 0.14), Color(0, 0, 0, presence))
+
+
+func _eye_disk(center: Vector2, rx: float, ry: float, color: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	draw_colored_polygon(pts, color)
+
+
+func absorb_into_target() -> void:
+	if is_absorbed:
+		return
+	is_absorbed = true
+	# freeze/collision changes are illegal inside a physics callback.
+	set_deferred("freeze", true)
+	set_deferred("collision_layer", 0)
+	set_deferred("collision_mask", 0)
+	var tween := create_tween().set_parallel(true)
+	tween.tween_property(self, "scale", Vector2.ZERO, 0.35).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_IN)
+	tween.tween_property(self, "modulate:a", 0.0, 0.35)
+	if light:
+		tween.tween_property(light, "energy", 0.0, 0.3)
+	await tween.finished
+	absorbed_by_target.emit(self)
+	queue_free()
+
+
+func _glide_on_stone(delta: float) -> void:
+	angular_velocity = 0.0
+	_step_beads(delta)
+	if moment == Moment.FILM:
+		flow_on_surface(delta)
+		return
+	if is_forming or is_absorbed or freeze:
+		return
+	if stone_grace > 0.0:
+		stone_grace = maxf(stone_grace - delta, 0.0)
+		return
+	if touch_kind.is_empty() or touch_normal == Vector2.ZERO:
+		return
+	if linear_velocity.length() < 70.0:
+		return
+	begin_film(touch_normal, linear_velocity.length())
+
+
+func _integrate_forces(state: PhysicsDirectBodyState2D) -> void:
+	state.angular_velocity = 0.0
+	touch_kind = ""
+	touch_normal = Vector2.ZERO
+	var rank := 0
+	for i in state.get_contact_count():
+		var other := state.get_contact_collider_object(i) as Node
+		if other == null:
+			continue
+		var kind := ""
+		var weight := 0
+		if other.is_in_group("tooth"):
+			kind = "tooth"
+			weight = 3
+		elif other.is_in_group("roof"):
+			kind = "roof"
+			weight = 2
+		elif other is StaticBody2D:
+			kind = "stone"
+			weight = 1
+		if weight <= rank:
+			continue
+		var normal: Vector2 = state.transform.basis_xform(state.get_contact_local_normal(i))
+		var contact: Vector2 = state.transform * state.get_contact_local_position(i)
+		var toward := state.transform.origin - contact
+		if normal.dot(toward) < 0.0:
+			normal = -normal
+		if normal.length_squared() < 0.0001:
+			continue
+		rank = weight
+		touch_kind = kind
+		touch_normal = normal.normalized()
+
+
+func _contact_kind() -> String:
+	return touch_kind
+
+
+func _stone_normal() -> Vector2:
+	if touch_kind != "stone":
+		return Vector2.ZERO
+	return touch_normal
+
+
+func begin_film(normal: Vector2, impact: float) -> void:
+	moment = Moment.FILM
+	moment_t = 0.0
+	film_spread = 1.0
+	film_normal = normal.normalized()
+	film_flat = clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
+	film_pos = global_position
+	freeze = true
+	collision_layer = 0
+	collision_mask = 0
+	linear_velocity = Vector2.ZERO
+	angular_velocity = 0.0
+	_splash_on(film_normal, maxf(impact, 140.0))
+
+
+func flow_on_surface(delta: float) -> void:
+	# One response for every surface. Flatness is how level the face is.
+	# Gravity along the face carries the sheet. Surface tension pulls it back into one drop.
+	moment_t += delta
+	var gravity_y := float(ProjectSettings.get_setting("physics/2d/default_gravity")) * gravity_scale
+	var gravity := Vector2(0.0, gravity_y)
+	var tangent := gravity - film_normal * gravity.dot(film_normal)
+	var flat := clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
+	film_flat = flat
+	var spill := 1.0 - flat
+	var down := Vector2.ZERO
+	if tangent.length() > 6.0:
+		down = tangent.normalized()
+	var flow := tangent.length() * lerpf(0.015, 0.1, spill)
+	flow = minf(flow, lerpf(10.0, 58.0, spill))
+	flow *= lerpf(0.45, 1.0, 1.0 - film_spread * 0.45)
+	var gather := lerpf(0.16, 1.55, flat) * lerpf(0.75, 1.7, 1.0 - film_spread)
+	film_spread = move_toward(film_spread, 0.0, gather * delta)
+	var space := get_world_2d().direct_space_state
+	if space == null:
+		_leave_surface(true)
+		return
+	var origin := film_pos + down * flow * delta
+	var query := PhysicsRayQueryParameters2D.create(origin + film_normal * 28.0, origin - film_normal * 48.0)
+	query.collision_mask = 1
+	query.exclude = [get_rid()]
+	var hit := space.intersect_ray(query)
+	if hit.is_empty():
+		_leave_surface(true)
+		return
+	var found: Vector2 = hit.normal
+	if found.dot(film_normal) < 0.0:
+		found = -found
+	film_normal = found.normalized()
+	var hug := lerpf(base_radius * 0.42, base_radius, 1.0 - film_spread)
+	film_pos = hit.position + film_normal * hug
+	global_position = film_pos
+	var peel := gravity.dot(film_normal)
+	if film_spread < 0.1 and peel > 90.0:
+		_leave_surface(true)
+	elif film_spread < 0.08 and flat > 0.82 and peel <= 0.0:
+		_leave_surface(false)
+
+
+func _leave_surface(falling: bool) -> void:
+	moment = Moment.FREE
+	freeze = false
+	collision_layer = 2
+	collision_mask = 13
+	stone_grace = 0.45
+	glide_normal = Vector2.ZERO
+	global_position = film_pos + film_normal * 6.0
+	linear_velocity = Vector2(0.0, 90.0) if falling else Vector2.ZERO
+	film_spread = 0.0
+
+
+func surface_line() -> String:
+	if film_spread > 0.62:
+		return "It opens where it lands."
+	if film_flat > 0.78:
+		if film_spread > 0.2:
+			return "It finds the low place."
+		return "It is one drop again."
+	if film_flat < 0.32:
+		return "It spills, slowly."
+	return "It follows the slope."
+
+
+func _draw_film() -> void:
+	var normal := film_normal
+	var tangent := Vector2(normal.y, -normal.x)
+	if tangent.dot(Vector2.DOWN) < 0.0:
+		tangent = -tangent
+	var wide := lerpf(base_radius, base_radius * lerpf(2.3, 5.4, film_flat), film_spread)
+	var thick := lerpf(base_radius * 0.92, base_radius * lerpf(0.62, 0.2, film_flat), film_spread)
+	var body := PackedVector2Array()
+	for i in 24:
+		var a := TAU * float(i) / 24.0
+		var wobble := 1.0 + sin(a * 3.0 + moment_t * 7.0) * film_spread * 0.16
+		body.append(tangent * cos(a) * wide * wobble + normal * sin(a) * thick)
+	draw_colored_polygon(body, droplet_color)
+	if film_spread > 0.2:
+		var reach := thick * (1.15 + film_spread * 0.8)
+		draw_circle(tangent * -wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
+		draw_circle(tangent * wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
+	draw_circle(normal * thick * 0.15, lerpf(base_radius * 0.42, thick * 0.9, film_spread), Color(0.92, 1, 1, 0.92))
+	for i in bead_pos.size():
+		var fade := clampf(bead_life[i] / 0.7, 0.0, 1.0)
+		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.6, fade), Color(droplet_color, 0.8 * fade))
+
+
+func _splash_on(normal: Vector2, speed: float) -> void:
+	splash_squash = clampf(0.72 - speed / 1400.0, 0.42, 0.7)
+	shape_v -= clampf(speed / 180.0, 0.6, 2.6)
+	slosh_v += -normal * clampf(speed / 700.0, 0.2, 1.4)
+	var tangent := Vector2(normal.y, -normal.x)
+	var count := 7 if speed > 160.0 else 4
+	for i in count:
+		var side := -1.0 if i < count / 2 else 1.0
+		bead_pos.append(global_position - normal * base_radius * 0.2)
+		bead_vel.append(tangent * side * randf_range(30.0, 110.0) + normal * randf_range(40.0, 130.0))
+		bead_life.append(randf_range(0.55, 1.05))
+	if speed > 90.0:
+		splashed.emit(global_position, normal)
+		AudioController.play(AudioController.Cue.DROP_SPLASH, randf_range(0.94, 1.08))
+
+
+func _step_beads(delta: float) -> void:
+	var kept_pos := PackedVector2Array()
+	var kept_vel := PackedVector2Array()
+	var kept_life := PackedFloat32Array()
+	for i in bead_pos.size():
+		var life := bead_life[i] - delta
+		if life <= 0.0:
+			continue
+		var velocity: Vector2 = bead_vel[i] + Vector2(0.0, 220.0) * delta
+		var pull := global_position - bead_pos[i]
+		var dist := pull.length()
+		if dist < base_radius * 0.9:
+			continue
+		velocity += pull / dist * 460.0 * delta
+		velocity *= exp(-2.4 * delta)
+		kept_pos.append(bead_pos[i] + velocity * delta)
+		kept_vel.append(velocity)
+		kept_life.append(life)
+	bead_pos = kept_pos
+	bead_vel = kept_vel
+	bead_life = kept_life
+
+
+func _on_body_entered(body: Node) -> void:
+	if is_forming or is_absorbed:
+		return
+	if body is StaticBody2D:
+		return
+	splash_squash = 0.62
+	shape_v -= 1.6
+	if linear_velocity.length() > 180.0:
+		splashed.emit(global_position, -linear_velocity.normalized())
+		AudioController.play(AudioController.Cue.DROP_SPLASH, randf_range(0.92, 1.12))

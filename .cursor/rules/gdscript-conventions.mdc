@@ -11,4 +11,4 @@ alwaysApply: false
 - Convert pointer events with `InputManager.event_local_position` / `event_world_position`.
 - Tune feel via `@export` on the scene instance, not new constants in level scripts.
 - Signals for cross-node events (`tendril_released`, `core_activated`). Avoid frame polling of sibling state.
-- Keep `_draw()` cheap (circles, arcs). Spawned water uses `FluidDroplet.tscn`, never `new()` without a scene.
+- Keep `_draw()` cheap (circles, arcs). Spawned water uses `Gloop.tscn`, never `new()` without a scene.

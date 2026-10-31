@@ -123,6 +123,16 @@ func _draw_drop() -> void:
 	var glint := Vector2(cos(time * 2.6) * 4.5, sin(time * 3.4) * 3.2 - 3.0)
 	draw_circle(drop_position + glint * _stretch, 5.0 * _stretch.x, Color(0.96, 1.0, 1.0, 0.95 * alpha))
 	draw_circle(drop_position + glint * _stretch * 0.45, 2.1, Color(1, 1, 1, alpha))
+	if _cycle > 4.3 and _cycle < 7.5:
+		var wake := smoothstep(4.3, 5.1, _cycle) * (1.0 - smoothstep(6.9, 7.5, _cycle))
+		var look := Vector2(sin(time * 0.5) * 1.3, -1.6)
+		var blink := 1.0
+		var phase := fmod(time, 3.6)
+		if phase > 3.2:
+			blink = (3.6 - phase) / 0.4
+		for side in [-1.0, 1.0]:
+			var eye := drop_position + Vector2(side * 4.6, 2.2) + look
+			_eye_disk(eye, 1.7, maxf(1.5 * blink, 0.14), Color(0.01, 0.03, 0.05, 0.9 * alpha * wake))
 	if _cycle > 2.85 and _cycle < 4.4:
 		var bead_t := (_cycle - 2.85) / 1.5
 		var bead := drop_position + Vector2(10.0, -6.0 + bead_t * 16.0)
@@ -188,3 +198,11 @@ func _on_vine(t: float) -> Vector2:
 	var u := 1.0 - t
 	var sag := Vector2(0.0, 14.0 * _weight)
 	return u * u * _LEFT + 2.0 * u * t * (_MID + sag) + t * t * _RIGHT
+
+
+func _eye_disk(center: Vector2, rx: float, ry: float, color: Color) -> void:
+	var pts := PackedVector2Array()
+	for i in 8:
+		var a := TAU * float(i) / 8.0
+		pts.append(center + Vector2(cos(a) * rx, sin(a) * ry))
+	draw_colored_polygon(pts, color)

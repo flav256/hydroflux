@@ -1,75 +1,85 @@
 # HydroFlux — Development roadmap
 
-`docs/NARRATIVE.md` is a working draft. Chapter names, order, and verbs will change as we play. This file follows the build, not a locked story.
+`docs/NARRATIVE.md` is a working draft. `docs/BLUEPRINT.md` is the build decision. This file is the order we will actually make things.
 
-Godot 4 can ship this to the web, the App Store, and Google Play. None of those builds exist yet.
-
-Godot 4 can ship to the web, the App Store, and Google Play. The game is not store-ready yet. The path is: finish Level 0 by hand, export HTML5, then mobile signing.
+The playable page is [https://flav256.github.io/hydroflux/](https://flav256.github.io/hydroflux/). Source is on `main`. App Store and Play Store builds do not exist yet.
 
 ## Where we are
 
-- [x] Splash, then Chapter 1 list. Level 0 is playable. Later rooms are grey, and openable in a development run.
-- [x] Membrane holds a drop. Desktop drag uses the mouse button, not emulated touch.
-- [x] One-line hint on Level 0
-- [x] Stars (clear, few misses, fast) and points, kept per level
-- [x] Level 0 bed, drop, and a short completion chime
-- [ ] Replace the generated bed with a recorded piece if the loop feels thin
+- [x] Splash, then the Chapter 1 list. Level 0 is playable. Later rooms are grey.
+- [x] Membrane. The drop sits, follows the pull, and leaves on release.
+- [x] The vine is a dashed curve. Level 0 shows the flight path while you pull. Later rooms do not.
+- [x] Eyes while waiting, while the pointer passes over, and while the vine is held.
+- [x] Recorded water for the bed and the cues.
+- [x] Stars, points, save.
+- [x] HTML5 on GitHub Pages. One tap starts the sound. A phone stays sideways.
+- [x] Liquid hitting the Level 0 cone splashes and runs down the face instead of tumbling.
+- [ ] Eyes in flight and in a long fall
 - [ ] Hand-drawn silhouette plates instead of generated polygons
 
-## 0 — Level 0 you can finish with a thumb
+## 0 — Finish the liquid drop
 
-- Pull-back throw lands in the well without a perfect angle
-- Hint line only, then silence on the next attempt if they already understood
-- Drip, vine, snap, well: four sounds
-- Double-click `play.command`, or Godot → F5
+The membrane stays. This pass only changes the body.
 
-**Exit:** someone else finishes Level 0 with no spoken help.
+- In flight the eyes narrow and fade. In a long fall they look down.
+- The Level 0 cone splashes and the drop runs down the face.
+- Hit a vertical wall: flatten, stick, creep downward. No marble bounce.
+- Still one rigid body. No joint ring.
 
-## 1 — The Vein and The Thread
+**Exit:** Level 0 feels the same to throw, and a test wall shows the cling.
 
-Chapters 1 and 2 from the narrative.
+## 1 — The Vein
 
-- Second membrane in one room
-- A counted gate (two drops, not one)
-- Drops that share a pace but do not merge yet
+Same vine, a second one, and a vine that does not hold forever.
 
-## 2 — Breath and Cup
+- Two membranes in one room. One is already loaded while you touch the other.
+- A membrane that carries the drop for a short rest, then lets it through.
 
-- Vent: tap and hold
-- Drops that merge into a pool with one surface
-- A well that wants volume
+**Exit:** someone finishes the room with no new sentence on screen.
 
-## 3 — The Dark
+## 2 — The Thread
 
-- Background glow fades. Miss the drop and the room goes quiet and black.
-- No new control. The same vine, with the safety of the glow removed.
+- One drop becomes a short string of smaller drops.
+- Small drops fit a narrow gap.
+- Drops that touch pull together and become one body again.
+- Nothing in Level 0 shatters.
 
-## 4 — Online
+## 3 — Breath and the sponge
 
-- Godot HTML5 export, `gl_compatibility`, single thread
-- Zip and publish on itch.io at 1280×720
-- This is the first public build. No store account required.
+- A vent: tap flicks, hold is a draft.
+- A sponge: press to drink the drop, release and it weeps back out.
 
-## 5 — Phones
+## 4 — The Cup, then The Dark
 
-- Export presets for iOS and Android
-- Apple Developer account, signing, and a privacy label for the App Store
-- Play Console listing for Android
-- Haptics on snap and on the well
-- Larger grab, tested on a real phone
+- The well wants volume. A pool has one surface. A vine lifts the surface.
+- Then the background glow dies. Miss the drop and the room goes quiet. No new control.
 
-**Exit:** TestFlight and an internal Android track, not a public store launch, until Level 0 and Level 1 feel right on a thumb.
+## 5 — Cold
 
-## 6 — Ember and The Fall
+Only after liquid rooms are in the Pages build.
 
-Only after the first five chapters are in the online build.
+- Frost. The drop becomes ice: it slides, it does not cling, it can break a thin wall.
+- Heat brings it back to liquid.
 
-- Heat dries a pool. Steam rises and condenses.
-- A sheet of water guided by a lip, not a single drop
-- Sound: hiss, crackle, a thinner room tone
+## 6 — Ember
+
+- Heat dries a pool.
+- Steam rises, ignores the vine, and condenses on a cold tooth.
+- Beside extreme heat the drop boils. That is a timer, not a new move.
+- A sheet of water comes after steam works, guided by a lip.
+
+## 7 — Phones
+
+- iOS and Android export presets
+- A real-phone grab, larger than the laptop one
+- Haptics on the snap and on the well
+- TestFlight and an internal Android track before any public store page
 
 ## Not in this roadmap
 
-- A real fluid solver
+- A fluid solver, or a SpringJoint drop as the first refactor
+- Digging tunnels through the rock
+- Cloning swarms
+- A named mascot, or a mouth. A flight path only on Level 0.
 - Level editors
 - Paragraphs of story text

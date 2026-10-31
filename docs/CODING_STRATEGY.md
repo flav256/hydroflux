@@ -5,7 +5,7 @@ How we implement the blueprint without melting mobile GPUs or the scene tree.
 ## Principles
 
 1. **One concern per node.** Tendril does sling physics. Droplet does liquid feel. Level scripts only sequence.
-2. **Compose scenes.** `Level_00.tscn` instances `FluidDroplet.tscn`, `ElasticTendril.tscn`, `TargetCore.tscn`. Do not duplicate object scripts inside the level file.
+2. **Compose scenes.** `Level_00.tscn` instances `Gloop.tscn`, `ElasticTendril.tscn`, `TargetCore.tscn`. Do not duplicate object scripts inside the level file.
 3. **Exported tunables.** Feel lives in `@export` on the instance (stiffness, gravity_scale, spawn interval). Code stays generic.
 4. **Signals over polling.** `tendril_released`, `core_activated`, `absorbed_by_target`.
 5. **Godot 4 typed GDScript.** `bool` not `boolean`, `float` not `number`, `get_node_or_null`, typed arrays when cheap.
@@ -22,7 +22,7 @@ Do not add a new mechanic until Level 0 is completable in Godot.
 
 ## Script rules
 
-- `class_name` on reusable objects only (`ElasticTendril`, `FluidDroplet`, `TargetCore`, `LevelBase`).
+- `class_name` on reusable objects only (`ElasticTendril`, `Gloop`, `TargetCore`, `LevelBase`).
 - Autoloads: no `class_name` (name collision with the singleton).
 - Input coordinates go through `InputManager`. Never mix `event.position` and `global_position` raw.
 - `_draw()` is for silhouettes and glow discs. Heavy VFX later = shaders in `assets/shaders/`.
@@ -31,7 +31,7 @@ Do not add a new mechanic until Level 0 is completable in Godot.
 ## Scene rules
 
 - CollisionPolygon2D + child Polygon2D for cavern silhouettes (same points).
-- Packed scenes for anything spawned (`FluidDroplet`).
+- Packed scenes for anything spawned (`Gloop`).
 - Main scene is `MainMenu.tscn`. F6 on `Level_00.tscn` is valid for iteration.
 
 ## Agent / PR workflow

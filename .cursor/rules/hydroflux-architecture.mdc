@@ -7,7 +7,8 @@ alwaysApply: true
 
 - Godot 4.3 GDScript, mobile `gl_compatibility`. Aesthetic: `#09090b` caverns, `#06b6d4` fluid.
 - Autoloads: `GameManager` (routing/saves), `AudioController` (cues), `InputManager` (viewport → world). No gameplay in autoloads.
-- Objects own physics: `ElasticTendril`, `FluidDroplet`, `TargetCore`. Levels only sequence phases.
+- Objects own physics: `ElasticTendril`, `Gloop`, `TargetCore`. Levels only sequence phases.
+- Gloop is one rigid body, drawn soft, with viscosity and surface tension. Do not replace it with a SpringJoint rim unless a chapter cannot be done any other way. The player never grabs Gloop. Only Level 0 draws a predicted flight path (`show_flight_path`).
 - Collision: 1 cavern, 2 droplets, 3 tendril, 4 target. Droplet mask includes 1+3+4.
 - `poc/gemini-level-0` is archive. Edit `res://scripts` and `res://scenes` only.
 - Compose PackedScenes; do not paste object scripts into level `.tscn` files.

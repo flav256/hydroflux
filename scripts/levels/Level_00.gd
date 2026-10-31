@@ -13,7 +13,7 @@ enum LevelPhase {
 
 var current_phase: LevelPhase = LevelPhase.PHASE_1_OBSERVATION
 var victory_started: bool = false
-var live_drop: FluidDroplet
+var live_drop: Gloop
 var respawn_wait: float = 0.0
 var misses: int = 0
 var started_ms: int = 0
@@ -34,6 +34,10 @@ func _ready() -> void:
 		tendril.tendril_released.connect(_on_tendril_released)
 	if target_core:
 		target_core.core_activated.connect(_on_target_activated)
+	if has_node("Tooth"):
+		$Tooth.add_to_group("tooth")
+	if has_node("Roof"):
+		$Roof.add_to_group("roof")
 	get_tree().create_timer(1.2).timeout.connect(spawn_first_drop)
 
 
@@ -47,7 +51,7 @@ func _spawn_drop(form: bool) -> void:
 		return
 	if is_instance_valid(live_drop) and not live_drop.is_absorbed:
 		return
-	var droplet: FluidDroplet = droplet_scene.instantiate()
+	var droplet: Gloop = droplet_scene.instantiate()
 	droplet.global_position = spawner.global_position
 	add_child(droplet)
 	live_drop = droplet
@@ -77,22 +81,32 @@ func _process(delta: float) -> void:
 func _hint_line() -> String:
 	if victory_started:
 		return "The well is lit."
-	if not is_instance_valid(live_drop) or live_drop.is_forming:
-		return "A light is forming."
+	if not is_instance_valid(live_drop):
+		return "A light gathers in the dark."
+	if live_drop.moment == Gloop.Moment.FILM:
+		return live_drop.surface_line()
+	if live_drop.is_forming:
+		return "A light gathers in the dark."
 	if tendril and tendril.is_dragged:
-		return "Release."
+		return "The vine holds its breath."
 	if respawn_wait > 0.0:
-		return "The light returns."
-	if live_drop.global_position.y > 680.0 or live_drop.global_position.x > 1200.0:
-		return "Pull down and back, away from the ring, then let go."
-	if live_drop.linear_velocity.length() < 45.0 and live_drop.global_position.y > 320.0:
-		return "Pull the vine down and back, then release."
-	return "Let it reach the vine."
+		return "The dark takes it back."
+	if live_drop.on_membrane:
+		if live_drop.mood == Gloop.Mood.IMPATIENT:
+			return "It looks for your hand."
+		return "It waits in the curve."
+	if live_drop.linear_velocity.length() > 80.0:
+		return "It is given to the air."
+	if live_drop.global_position.y < 340.0:
+		return "It lets go of the tooth."
+	return "It looks for the vine."
 
 
 func _drop_missed() -> bool:
 	if not is_instance_valid(live_drop) or live_drop.is_absorbed or live_drop.is_forming:
 		return false
+	if live_drop.moment == Gloop.Moment.FILM:
+		return live_drop.global_position.y > 690.0
 	var p := live_drop.global_position
 	# The floor sits above the old cutoff, so a missed drop used to rest there forever.
 	if p.y > 690.0 or p.x < -20.0 or p.x > 1300.0:

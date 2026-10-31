@@ -1,11 +1,11 @@
 [gd_scene load_steps=3 format=3 uid="uid://cfluxdrop0001"]
 
-[ext_resource type="Script" path="res://scripts/objects/FluidDroplet.gd" id="1_drop"]
+[ext_resource type="Script" path="res://scripts/objects/Gloop.gd" id="1_drop"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_drop"]
 radius = 12.0
 
-[node name="FluidDroplet" type="RigidBody2D"]
+[node name="Gloop" type="RigidBody2D"]
 collision_layer = 2
 collision_mask = 13
 mass = 0.65

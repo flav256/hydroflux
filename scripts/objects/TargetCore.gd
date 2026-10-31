@@ -38,8 +38,8 @@ func _draw() -> void:
 
 
 func _on_body_entered(body: Node2D) -> void:
-	if body is FluidDroplet and not (body as FluidDroplet).is_absorbed:
-		(body as FluidDroplet).absorb_into_target()
+	if body is Gloop and not (body as Gloop).is_absorbed:
+		(body as Gloop).absorb_into_target()
 		current_volume += 1
 		fluid_received.emit(current_volume, required_fluid_volume)
 		AudioController.play(AudioController.Cue.CORE_ABSORB)

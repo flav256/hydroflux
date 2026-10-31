@@ -1,7 +1,7 @@
 [gd_scene load_steps=10 format=3 uid="uid://hydrofluxlvl00"]
 
 [ext_resource type="Script" path="res://scripts/levels/Level_00.gd" id="1_lvl"]
-[ext_resource type="PackedScene" path="res://scenes/objects/FluidDroplet.tscn" id="2_droplet"]
+[ext_resource type="PackedScene" path="res://scenes/objects/Gloop.tscn" id="2_droplet"]
 [ext_resource type="PackedScene" path="res://scenes/objects/ElasticTendril.tscn" id="3_tendril"]
 [ext_resource type="PackedScene" path="res://scenes/objects/TargetCore.tscn" id="4_target"]
 [ext_resource type="PackedScene" path="res://scenes/ui/HUD.tscn" id="5_hud"]
@@ -52,12 +52,23 @@ polygon = PackedVector2Array(0, 720, 0, 640, 160, 655, 240, 600, 360, 668, 700, 
 collision_layer = 1
 collision_mask = 2
 
-[node name="CeilingStalactite" type="CollisionPolygon2D" parent="CavernGeometry"]
+[node name="Tooth" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 2
+
+[node name="Shape" type="CollisionPolygon2D" parent="Tooth"]
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
 
-[node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CeilingStalactite"]
+[node name="Polygon2D" type="Polygon2D" parent="Tooth/Shape"]
 color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(240, 0, 310, 0, 280, 140, 275, 155, 270, 140)
+
+[node name="Roof" type="StaticBody2D" parent="."]
+collision_layer = 1
+collision_mask = 2
+
+[node name="Shape" type="CollisionPolygon2D" parent="Roof"]
+polygon = PackedVector2Array(0, 0, 1280, 0, 1280, 78, 980, 96, 760, 54, 520, 110, 340, 48, 180, 92, 0, 64)
 
 [node name="Phase1Basin" type="CollisionPolygon2D" parent="CavernGeometry"]
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
@@ -67,7 +78,7 @@ color = Color(0, 0, 0, 1)
 polygon = PackedVector2Array(220, 680, 230, 620, 320, 620, 330, 680)
 
 [node name="CentralBarrier" type="CollisionPolygon2D" parent="CavernGeometry"]
-polygon = PackedVector2Array(480, 720, 500, 500, 520, 470, 540, 500, 560, 720)
+polygon = PackedVector2Array(480, 720, 500, 500, 512, 484, 528, 484, 540, 500, 560, 720)
 
 [node name="Polygon2D" type="Polygon2D" parent="CavernGeometry/CentralBarrier"]
 color = Color(0, 0, 0, 1)
@@ -89,7 +100,7 @@ collision_mask = 2
 shape = SubResource("WorldBoundary_floor")
 
 [node name="Spawner_Phase1" type="Marker2D" parent="."]
-position = Vector2(275, 160)
+position = Vector2(275, 168)
 
 [node name="ElasticTendril" parent="." instance=ExtResource("3_tendril")]
 position = Vector2(270, 400)
@@ -98,6 +109,7 @@ anchor_right = Vector2(100, 0)
 max_stretch_distance = 220.0
 spring_stiffness = 220.0
 launch_force_multiplier = 5.5
+show_flight_path = true
 
 [node name="TargetCore" parent="." instance=ExtResource("4_target")]
 position = Vector2(1000, 460)

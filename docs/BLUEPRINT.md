@@ -13,6 +13,12 @@ The dashed line is the vine itself. Level 0 also draws the flight the drop will 
 
 The liquid is Gloop. In code that is `Gloop`. It is one body, drawn with viscosity and surface tension: it stretches into a neck, pulls stray beads home, and beads up again instead of staying smeared. Personality is two pinpricks inside it. The game is still called HydroFlux.
 
+## Quality bar for Level 0
+
+Treat the reference games as craft benchmarks, not templates to copy. Contre Jour shows how silhouette, negative space, light, touch, and music can make a small physics puzzle feel authored. World of Goo shows how mass, tension, and a readable response can make a material feel playful and physical. HydroFlux keeps its own language: one bioluminescent drop, a flexible membrane, ink-dark cavern shapes, and restrained moving water light.
+
+Every visible motion should explain a force. The membrane should show the pull before release; Gloop should keep its volume while it stretches, lands, spreads, and recovers; light and sound should reinforce those same moments. The room needs foreground, middle distance, and illuminated depth, with clear negative space around the puzzle. Avoid decorative detail that competes with the drop or the vine.
+
 ## How the drop is built
 
 One `RigidBody2D`. The softness is drawn: the outline conserves volume, flattens where it rests, stretches along its motion, and the bright inside lags the skin.

@@ -30,6 +30,9 @@ The membrane stays. This pass finishes the style, behavior, interface, and physi
 - [x] Firm impacts emit a few temporary beads; hard impacts emit a short split. Beads are attracted back to the one main Gloop body.
 - [x] Ceiling contact spreads, waits briefly, reforms slowly, and drops as one body.
 - [ ] Tune all surface responses in a visible Level 0 playthrough. Current target is a 6–13.2 radius span and no more than 0.52 spread units/second on broad faces and shallow inclines.
+- [ ] Tune the new slow caustic and light-shaft pass at iPad scale; check that the animation supports the puzzle focus and remains smooth in WebGL.
+- [ ] Tune Gloop's new specular highlight on the free body and surface film so it reads as wet volume rather than a flat cyan shape.
+- [ ] Check 60/120 Hz motion and touch-to-render response. Physics interpolation is off; enable it only after launch, membrane seating, and surface repositioning are verified without visual streaks.
 - [ ] Horizontal faces spread and gather without bounce loops. Collision probe entered film at the expected upward-facing normal (spread 0.58 at 1.2 s; gathered back to one drop by 3.8 s); visible feel and bounce behavior still need tuning.
 - [ ] Vertical faces cling and glide down under gravity. Collision probe entered film with a horizontal normal (spread 0.89 at 1.2 s) and was still flowing lower on the wall at 3.8 s; visible glide speed and release need tuning.
 - [ ] Slopes carry the drop along gravity's tangent, with shallow slopes allowing it to gather. Collision probe entered film with the expected diagonal normal (spread 0.58 at 1.2 s); it flowed to the lower edge by 3.8 s. Recheck on the authored Level 0 surfaces.

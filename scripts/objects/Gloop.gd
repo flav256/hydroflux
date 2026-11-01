@@ -233,6 +233,17 @@ func _draw() -> void:
 		var a := TAU * float(i) / 16.0
 		inner.append(slosh * 0.85 + Vector2(cos(a), sin(a)) * base_radius * 0.46 * Vector2(shape_x_now(), shape_y))
 	draw_colored_polygon(inner, Color(0.55, 0.96, 1.0, 0.55))
+	var gloss_center := Vector2(-base_radius * 0.14, -base_radius * 0.22) - dir * base_radius * 0.08
+	draw_arc(
+		gloss_center,
+		base_radius * 0.47,
+		PI * 1.13,
+		PI * 1.73,
+		12,
+		Color(0.96, 1.0, 1.0, 0.42),
+		maxf(base_radius * 0.055, 0.65),
+		true
+	)
 	_draw_presence(now)
 	var glint := -dir * base_radius * 0.12 + Vector2(cos(now * 2.3), sin(now * 2.9)) * base_radius * 0.18
 	draw_circle(glint, base_radius * 0.36, Color(0.9, 1.0, 1.0, 0.92))
@@ -627,6 +638,11 @@ func _draw_film() -> void:
 		draw_circle(tangent * -wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
 		draw_circle(tangent * wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
 	draw_circle(normal * thick * 0.15, lerpf(base_radius * 0.42, thick * 0.9, film_spread), Color(0.92, 1, 1, 0.92))
+	var sheen := PackedVector2Array()
+	for i in 9:
+		var a := lerpf(PI * 0.15, PI * 0.85, float(i) / 8.0)
+		sheen.append(tangent * cos(a) * wide * 0.58 + normal * sin(a) * thick * 0.42)
+	draw_polyline(sheen, Color(0.96, 1.0, 1.0, 0.38), maxf(base_radius * 0.055, 0.65), true)
 	for i in bead_pos.size():
 		var fade := clampf(bead_life[i] / 0.7, 0.0, 1.0)
 		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.6, fade), Color(droplet_color, 0.8 * fade))

@@ -8,6 +8,7 @@ uniform vec3 deep_color : source_color = vec3(0.012, 0.02, 0.03);
 uniform vec3 mist_color : source_color = vec3(0.0, 0.22, 0.28);
 uniform vec3 heart_color : source_color = vec3(0.25, 0.78, 0.82);
 uniform vec2 glow_center = vec2(0.38, 0.46);
+uniform float caustic_strength : hint_range(0.0, 0.25) = 0.13;
 
 void fragment() {
 	vec2 uv = UV;
@@ -21,6 +22,14 @@ void fragment() {
 	col += mist_color * haze;
 	col += heart_color * heart * 0.62;
 	col += heart_color * well * 0.28;
+	// Slow, broad caustic traces keep the cavern light alive without busy noise.
+	float wave_x = sin(uv.x * 15.0 + sin(uv.y * 8.0 + TIME * 0.14) * 1.15 + TIME * 0.10);
+	float wave_y = sin(uv.y * 17.0 + sin(uv.x * 6.0 - TIME * 0.12) * 1.05 - TIME * 0.08);
+	float caustic = pow(max(wave_x * wave_y, 0.0), 7.0);
+	float caustic_mask = 1.0 - smoothstep(0.18, 0.92, d);
+	col += heart_color * caustic * caustic_mask * caustic_strength;
+	float shaft = pow(max(sin(uv.x * 3.8 + uv.y * 5.4 + sin(uv.y * 7.0 - TIME * 0.08)), 0.0), 12.0);
+	col += mist_color * shaft * haze * 0.12;
 	float vignette = smoothstep(1.05, 0.28, length((uv - vec2(0.5)) * vec2(1.2, 0.95)));
 	col *= mix(0.25, 1.0, vignette);
 	COLOR = vec4(col, 1.0);

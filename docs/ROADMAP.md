@@ -16,6 +16,7 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 - [x] Stars, points, save.
 - [x] HTML5 on GitHub Pages. One tap starts the sound. A phone stays sideways.
 - [x] Verify Gloop is visible while seated in the exported HTML. The live Pages build now shows Gloop on the membrane with its face, glow, and falling trail visible. The previous render order let the thick membrane cover it.
+- [x] Republish the current web export after the live page was found behind the source branch. Pages now serves the export built from the current Level 0 source, including the visibility and visual polish changes (`gh-pages` commit `744f010`).
 - [x] Liquid hitting the Level 0 cone splashes and runs down the face instead of tumbling.
 - [x] Eyes in flight and in a long fall
 - [x] Hand-drawn silhouette plates instead of generated polygons

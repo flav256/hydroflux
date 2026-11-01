@@ -28,7 +28,8 @@ enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
 var is_absorbed: bool = false
 var is_forming: bool = false
 var form_t: float = 0.0
-var splash_squash: float = 1.0
+var impact_flatten: float = 0.0
+var impact_normal: Vector2 = Vector2.UP
 var membrane_cooldown: float = 0.0
 var surface_velocity: Vector2 = Vector2.ZERO
 var trail: Array[Vector2] = []
@@ -119,7 +120,7 @@ func _physics_process(delta: float) -> void:
 		scale = Vector2(lerpf(0.15, 1.0, eased), lerpf(0.35, 1.05, eased))
 		if form_t >= 1.0:
 			_detach()
-	splash_squash = move_toward(splash_squash, 1.0, delta * 3.2)
+	impact_flatten = move_toward(impact_flatten, 0.0, delta * 2.6)
 	if is_forming:
 		trail.clear()
 	elif Engine.get_physics_frames() % 2 == 0:
@@ -150,7 +151,6 @@ func _detach() -> void:
 func ride_surface(velocity: Vector2, impact_speed: float) -> void:
 	surface_velocity = velocity
 	if impact_speed > 90.0:
-		splash_squash = clampf(1.0 - impact_speed / 1600.0, 0.48, 0.8)
 		shape_v -= clampf(impact_speed / 220.0, 0.4, 2.4)
 		slosh_v += Vector2(0.0, clampf(impact_speed / 900.0, 0.0, 1.6))
 
@@ -203,7 +203,7 @@ func _draw() -> void:
 		var n := Vector2(cos(a), sin(a))
 		var along := n.dot(dir)
 		var side := n - dir * along
-		var wide := base_radius * sx * splash_squash * (1.0 + stretch * 0.08)
+		var wide := base_radius * sx * (1.0 + stretch * 0.08)
 		var tall := base_radius * shape_y
 		var p := side * wide + dir * along * tall * (0.9 - stretch * 0.12)
 		if along < 0.0:
@@ -226,6 +226,15 @@ func _draw() -> void:
 				p -= into * depth * 0.7
 				var along_stone := Vector2(-into.y, into.x)
 				p += along_stone * depth * 0.35 * signf(p.dot(along_stone) + 0.001)
+		# Flatten across the contact normal and widen along the surface without
+		# changing the drawn area. This keeps gentle impacts watery instead of
+		# making the drop visibly shrink on contact.
+		if impact_flatten > 0.001:
+			var normal_local := global_transform.basis_xform_inv(impact_normal).normalized()
+			var normal_part := normal_local * p.dot(normal_local)
+			var tangent_part := p - normal_part
+			var tangent_scale := sqrt(1.0 + impact_flatten * 0.7)
+			p = tangent_part * tangent_scale + normal_part / tangent_scale
 		body.append(p)
 	draw_colored_polygon(body, droplet_color)
 	var inner := PackedVector2Array()
@@ -626,23 +635,26 @@ func _draw_film() -> void:
 	if tangent.dot(Vector2.DOWN) < 0.0:
 		tangent = -tangent
 	var wide := lerpf(base_radius, base_radius * lerpf(3.0, 6.6, film_flat), film_spread)
-	var thick := lerpf(base_radius * 0.92, base_radius * lerpf(0.7, 0.28, film_flat), film_spread)
+	# Keep the 2D liquid area close to the round drop as the sheet widens.
+	var thick := base_radius * base_radius / maxf(wide, base_radius)
 	var body := PackedVector2Array()
 	for i in 24:
 		var a := TAU * float(i) / 24.0
-		var wobble := 1.0 + sin(a * 3.0 + moment_t * 7.0) * film_spread * 0.18
+		var wobble := 1.0 + sin(a * 3.0 + moment_t * 5.0) * film_spread * 0.035
 		body.append(tangent * cos(a) * wide * wobble + normal * sin(a) * thick)
 	draw_colored_polygon(body, droplet_color)
-	if film_spread > 0.2:
-		var reach := thick * (1.15 + film_spread * 0.8)
-		draw_circle(tangent * -wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
-		draw_circle(tangent * wide * 0.78 + normal * thick * 0.15, reach, droplet_color)
-	draw_circle(normal * thick * 0.15, lerpf(base_radius * 0.42, thick * 0.9, film_spread), Color(0.92, 1, 1, 0.92))
+	var reflection := PackedVector2Array()
+	for i in 12:
+		var a := TAU * float(i) / 12.0
+		reflection.append(tangent * (-wide * 0.08 + cos(a) * wide * 0.32) + normal * (thick * 0.3 + sin(a) * thick * 0.22))
+	draw_colored_polygon(reflection, Color(0.55, 0.96, 1.0, 0.38))
 	var sheen := PackedVector2Array()
 	for i in 9:
-		var a := lerpf(PI * 0.15, PI * 0.85, float(i) / 8.0)
-		sheen.append(tangent * cos(a) * wide * 0.58 + normal * sin(a) * thick * 0.42)
-	draw_polyline(sheen, Color(0.96, 1.0, 1.0, 0.38), maxf(base_radius * 0.055, 0.65), true)
+		var t := float(i) / 8.0
+		var u := lerpf(-0.34, 0.16, t)
+		var v := 0.52 + sin(t * PI) * 0.1
+		sheen.append(tangent * wide * u + normal * thick * v)
+	draw_polyline(sheen, Color(0.98, 1.0, 1.0, 0.5), maxf(base_radius * 0.045, 0.55), true)
 	for i in bead_pos.size():
 		var fade := clampf(bead_life[i] / 0.7, 0.0, 1.0)
 		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.6, fade), Color(droplet_color, 0.8 * fade))
@@ -667,8 +679,9 @@ func _splash_on(normal: Vector2, speed: float) -> void:
 
 
 func _impact_deform(normal: Vector2, speed: float) -> void:
-	var strength := clampf(speed / 900.0, 0.0, 1.0)
-	splash_squash = lerpf(0.98, 0.52, strength)
+	var strength := clampf(speed / 760.0, 0.0, 1.0)
+	impact_flatten = maxf(impact_flatten, strength)
+	impact_normal = normal.normalized()
 	shape_v -= lerpf(0.08, 2.4, strength)
 	slosh_v += -normal * lerpf(0.03, 1.2, strength)
 
@@ -701,8 +714,9 @@ func _on_body_entered(body: Node) -> void:
 		return
 	if body is StaticBody2D:
 		return
-	splash_squash = 0.62
-	shape_v -= 1.6
-	if linear_velocity.length() > 180.0:
+	var speed := linear_velocity.length()
+	var normal := -linear_velocity.normalized() if speed > 0.01 else Vector2.UP
+	_impact_deform(normal, speed)
+	if speed > 180.0:
 		splashed.emit(global_position, -linear_velocity.normalized())
 		AudioController.play(AudioController.Cue.DROP_SPLASH, randf_range(0.92, 1.12))

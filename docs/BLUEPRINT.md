@@ -11,6 +11,8 @@ The Level 0 membrane is the core verb. Two anchors, a quadratic curve, a drop th
 
 The dashed line is the vine itself. Level 0 also draws the flight the drop will take, so the first throw can be learned. Later vines leave that path off.
 
+When the vine is pulled, a dim, tension-colored filament runs beneath the dashed core. It brightens with stretch and breathes only slightly; the glow should make stored force legible without becoming a target marker.
+
 The liquid is Gloop. In code that is `Gloop`. It is one body, drawn with viscosity and surface tension: it stretches into a neck, pulls stray beads home, and beads up again instead of staying smeared. Personality is two pinpricks inside it. The game is still called HydroFlux.
 
 ## Quality bar for Level 0
@@ -22,6 +24,8 @@ Every visible motion should explain a force. The membrane should show the pull b
 ## How the drop is built
 
 One `RigidBody2D`. The softness is drawn: the outline conserves volume, flattens where it rests, stretches along its motion, and the bright inside lags the skin.
+
+Keep the visible water area stable as it changes shape. Impact flattening compresses along the contact normal and widens along the face by reciprocal scale factors. Surface film keeps an approximately constant 2D area as its footprint widens; its reflection follows the thin sheet instead of reading as a second blob. Impact and idle ripples stay restrained so the outline remains legible at phone scale.
 
 A ring of `SpringJoint2D` nodes is a later experiment, and only if a chapter cannot be done with one body. A joint mesh fights the vine (the drop is seated on the curve on purpose) and costs too much on a phone. Do not start there.
 

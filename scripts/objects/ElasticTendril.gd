@@ -197,6 +197,15 @@ func _draw() -> void:
 		return
 	var stretch_ratio := (current_midpoint - rest_midpoint).length() / max_stretch_distance
 	draw_polyline(curve_points, Color(0, 0, 0, 1), membrane_radius * 1.7, true)
+	if is_dragged:
+		var pulse := (sin(Time.get_ticks_msec() * 0.004) + 1.0) * 0.5
+		var tension_alpha := 0.16 + stretch_ratio * 0.24 + pulse * 0.04
+		draw_polyline(
+			curve_points,
+			Color(tension_glow_color, tension_alpha),
+			lerpf(4.0, 7.0, stretch_ratio),
+			true
+		)
 	_draw_dashed(curve_points, Color(0.75, 0.96, 1, 0.95), 2.4, 3)
 	draw_circle(anchor_left, 7.0, Color(0, 0, 0, 1))
 	draw_circle(anchor_right, 7.0, Color(0, 0, 0, 1))

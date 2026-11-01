@@ -29,6 +29,8 @@ The membrane stays. This pass finishes the style, behavior, interface, and physi
 - [x] The Level 0 cone splashes and the drop runs down the face.
 - [x] Capture pre-solver velocity and read its normal speed separately from tangent speed; gentle impacts squash, firm/hard impacts spread. Thresholds are exported for tuning.
 - [x] Firm impacts emit a few temporary beads; hard impacts emit a short split. Beads are attracted back to the one main Gloop body.
+- [x] First visual-physics pass: impact squash now follows the surface normal and preserves the drawn area; spreading films taper as they widen, keeping their approximate 2D water area and a fitted reflection.
+- [x] First interaction-art pass: a restrained tension filament under the membrane becomes brighter and slightly wider as the player pulls, communicating stored force.
 - [x] Ceiling contact spreads, waits briefly, reforms slowly, and drops as one body.
 - [ ] Tune all surface responses in a visible Level 0 playthrough. Current target is a 6–13.2 radius span and no more than 0.52 spread units/second on broad faces and shallow inclines.
 - [ ] Tune the new slow caustic and light-shaft pass at iPad scale; check that the animation supports the puzzle focus and remains smooth in WebGL.

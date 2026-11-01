@@ -18,6 +18,9 @@ var respawn_wait: float = 0.0
 var misses: int = 0
 var started_ms: int = 0
 
+const QUICK_MISS_RESPAWN_DELAY: float = 0.55
+const RESTING_SURFACE_RESPAWN_DELAY: float = 1.2
+
 @onready var spawner: Marker2D = $Spawner_Phase1
 @onready var tendril: ElasticTendril = $ElasticTendril
 @onready var target_core: TargetCore = $TargetCore
@@ -68,7 +71,15 @@ func _process(delta: float) -> void:
 	var fell := _drop_missed()
 	if fell and target_core and not target_core.is_active:
 		respawn_wait += delta
-		if respawn_wait > 0.55:
+		var respawn_delay := QUICK_MISS_RESPAWN_DELAY
+		if (
+			is_instance_valid(live_drop)
+			and live_drop.moment != Gloop.Moment.FILM
+			and not live_drop.on_membrane
+			and live_drop.linear_velocity.length() < 25.0
+		):
+			respawn_delay = RESTING_SURFACE_RESPAWN_DELAY
+		if respawn_wait > respawn_delay:
 			respawn_wait = 0.0
 			misses += 1
 			if is_instance_valid(live_drop):

@@ -21,6 +21,7 @@ signal detached()
 @export var surface_reform_rate: float = 0.52
 @export var ceiling_hold_duration: float = 1.0
 @export var ceiling_reform_rate: float = 0.52
+@export var max_wall_glide_speed: float = 30.0
 
 enum Mood { QUIET, IMPATIENT, TICKLED, HELD, FLIGHT, FALL }
 enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
@@ -562,8 +563,8 @@ func flow_on_surface(delta: float) -> void:
 	var down := Vector2.ZERO
 	if tangent.length() > 6.0:
 		down = tangent.normalized()
-	var flow := tangent.length() * lerpf(0.015, 0.1, spill)
-	flow = minf(flow, lerpf(10.0, 58.0, spill))
+	var flow := tangent.length() * lerpf(0.015, 0.065, spill)
+	flow = minf(flow, lerpf(10.0, max_wall_glide_speed, spill))
 	flow *= lerpf(0.45, 1.0, 1.0 - film_spread * 0.45)
 	var gather := lerpf(0.16, 1.55, flat) * lerpf(0.75, 1.7, 1.0 - film_spread)
 	var is_ceiling := film_normal.dot(Vector2.DOWN) > 0.82

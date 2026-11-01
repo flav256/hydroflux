@@ -22,6 +22,7 @@ signal detached()
 @export var ceiling_hold_duration: float = 1.0
 @export var ceiling_reform_rate: float = 0.52
 @export var max_wall_glide_speed: float = 30.0
+@export var max_wall_film_radius: float = 4.5
 
 enum Mood { QUIET, IMPATIENT, TICKLED, HELD, FLIGHT, FALL }
 enum Moment { FREE, GLIDE, SPREAD, GATHER, SPLIT, FILM }
@@ -635,7 +636,8 @@ func _draw_film() -> void:
 	var tangent := Vector2(normal.y, -normal.x)
 	if tangent.dot(Vector2.DOWN) < 0.0:
 		tangent = -tangent
-	var wide := lerpf(base_radius, base_radius * lerpf(3.0, 6.6, film_flat), film_spread)
+	var max_spread_radius := lerpf(max_wall_film_radius, 6.6, film_flat)
+	var wide := lerpf(base_radius, base_radius * max_spread_radius, film_spread)
 	# Keep the 2D liquid area close to the round drop as the sheet widens.
 	var thick := base_radius * base_radius / maxf(wide, base_radius)
 	var body := PackedVector2Array()

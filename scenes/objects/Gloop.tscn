@@ -1,6 +1,7 @@
-[gd_scene load_steps=3 format=3 uid="uid://cfluxdrop0001"]
+[gd_scene load_steps=4 format=3 uid="uid://cfluxdrop0001"]
 
 [ext_resource type="Script" path="res://scripts/objects/Gloop.gd" id="1_drop"]
+[ext_resource type="Texture2D" path="res://assets/textures/light_soft.tres" id="2_light"]
 
 [sub_resource type="CircleShape2D" id="CircleShape_drop"]
 radius = 12.0
@@ -20,5 +21,9 @@ shape = SubResource("CircleShape_drop")
 
 [node name="PointLight2D" type="PointLight2D" parent="."]
 color = Color(0.0235294, 0.713726, 0.831373, 1)
-energy = 1.15
-texture_scale = 1.6
+energy = 1.4
+texture = ExtResource("2_light")
+texture_scale = 2.6
+shadow_enabled = true
+shadow_filter = 1
+shadow_filter_smooth = 2.5

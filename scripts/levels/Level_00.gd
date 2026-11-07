@@ -33,6 +33,7 @@ func _ready() -> void:
 	level_id = "level_00"
 	started_ms = Time.get_ticks_msec()
 	AudioController.play_bed()
+	setup_light_room()
 	if tendril:
 		tendril.tendril_stretched.connect(_on_tendril_stretched)
 		tendril.tendril_released.connect(_on_tendril_released)
@@ -156,6 +157,9 @@ func _on_target_activated() -> void:
 	tween.tween_property($CanvasModulate, "color", Color(1.45, 1.55, 1.6, 1.0), 1.4)
 	if camera:
 		tween.tween_property(camera, "zoom", Vector2(1.08, 1.08), 1.6).set_trans(Tween.TRANS_CUBIC)
+	var room := room_material()
+	if room:
+		tween.tween_property(room, "shader_parameter/ambient", bloom_ambient, 2.2).set_trans(Tween.TRANS_SINE)
 	_show_result(result)
 	await get_tree().create_timer(4.4).timeout
 	if is_inside_tree():

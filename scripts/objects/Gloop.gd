@@ -12,6 +12,7 @@ signal detached()
 @export var base_radius: float = 12.0
 @export var max_velocity_stretch: float = 1.8
 @export var form_duration: float = 0.85
+@export var light_energy: float = 1.4
 
 @export_group("Surface Response")
 @export var film_impact_threshold: float = 70.0
@@ -74,6 +75,7 @@ var film_spread: float = 0.0
 var film_flat: float = 1.0
 var film_normal: Vector2 = Vector2.UP
 var film_pos: Vector2 = Vector2.ZERO
+var _wet: Node = null
 
 @onready var light: PointLight2D = get_node_or_null("PointLight2D")
 
@@ -91,9 +93,11 @@ func _ready() -> void:
 	film.bounce = 0.0
 	physics_material_override = film
 	body_entered.connect(_on_body_entered)
+	# Gloop is the light; it is not lit by it.
+	light_mask = 0
 	if light:
 		light.color = droplet_color
-		light.energy = 1.15
+		light.energy = light_energy
 	previous_position = global_position
 
 
@@ -104,6 +108,8 @@ func begin_formation() -> void:
 	collision_layer = 0
 	collision_mask = 0
 	scale = Vector2(0.15, 0.35)
+	if light:
+		light.energy = 0.0
 	AudioController.play(AudioController.Cue.DROP_FORM, randf_range(0.9, 1.1))
 
 
@@ -120,6 +126,8 @@ func _physics_process(delta: float) -> void:
 		form_t += delta / maxf(form_duration, 0.05)
 		var eased := smoothstep(0.0, 1.0, clampf(form_t, 0.0, 1.0))
 		scale = Vector2(lerpf(0.15, 1.0, eased), lerpf(0.35, 1.05, eased))
+		if light:
+			light.energy = light_energy * eased
 		if form_t >= 1.0:
 			_detach()
 	impact_flatten = move_toward(impact_flatten, 0.0, delta * 2.6)
@@ -146,6 +154,8 @@ func _detach() -> void:
 	global_position.y = maxf(global_position.y, 188.0)
 	linear_velocity = Vector2(0.0, 36.0)
 	stone_grace = 0.45
+	if light:
+		light.energy = light_energy
 	AudioController.play_drop_detach()
 	detached.emit()
 
@@ -482,6 +492,7 @@ func _glide_on_stone(delta: float) -> void:
 	if impact_speed < film_impact_threshold:
 		if impact_speed > 24.0:
 			_impact_deform(touch_normal, impact_speed)
+			_leave_wet(global_position - touch_normal * base_radius, Vector2(touch_normal.y, -touch_normal.x), base_radius * 2.0)
 		return
 	begin_film(touch_normal, impact_speed)
 
@@ -597,6 +608,8 @@ func flow_on_surface(delta: float) -> void:
 	film_normal = found.normalized()
 	var hug := lerpf(base_radius * 0.42, base_radius, 1.0 - film_spread)
 	film_pos = hit.position + film_normal * hug
+	var wet_span := lerpf(base_radius, base_radius * lerpf(max_wall_film_radius, 6.6, film_flat), film_spread) * 2.0
+	_leave_wet(hit.position, Vector2(film_normal.y, -film_normal.x), wet_span)
 	global_position = film_pos
 	var peel := gravity.dot(film_normal)
 	if is_ceiling and moment_t >= spread_duration + ceiling_hold_duration and film_spread < 0.08:
@@ -723,3 +736,12 @@ func _on_body_entered(body: Node) -> void:
 	if speed > 180.0:
 		splashed.emit(global_position, -linear_velocity.normalized())
 		AudioController.play(AudioController.Cue.DROP_SPLASH, randf_range(0.92, 1.12))
+
+
+func _leave_wet(at: Vector2, along: Vector2, width: float) -> void:
+	# Wet stone keeps a little of the light (WetGlow), so a miss still maps the room.
+	if not is_instance_valid(_wet):
+		_wet = get_tree().get_first_node_in_group("wet_glow")
+		if _wet == null:
+			return
+	_wet.call("mark", at, along, width)

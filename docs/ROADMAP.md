@@ -6,7 +6,7 @@ The playable page is [https://flav256.github.io/hydroflux/](https://flav256.gith
 
 ## Where we are
 
-**Current focus: Level 0 quality.** Level 1 stays blocked until the Level 0 exit checks below pass in a full playthrough.
+**Current focus: the revamp in `docs/PROPOSAL.md`.** Level 0 surface tuning is frozen as a feel reference. Step 0, the light spike, is in progress. The Level 0 checklist below stays for reference until the proposal is folded into the docs.
 
 - [x] Splash, then the Chapter 1 list. Level 0 is playable. Later rooms are grey.
 - [x] Membrane. The drop sits, follows the pull, and leaves on release.

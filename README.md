@@ -14,6 +14,7 @@ The drop sits on the vine. Pull the vine back, away from the ring, then release.
 
 ## Layout
 
+- `docs/PROPOSAL.md` — proposed revamp: light, story, Chapter 1, token plan
 - `docs/NARRATIVE.md` — chapters, sound, heat, and how water grows
 - `docs/ROADMAP.md` — build order, including web and the stores
 - `docs/BLUEPRINT.md`, `docs/CODING_STRATEGY.md`

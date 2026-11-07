@@ -126,7 +126,7 @@ anchor_left = Vector2(-90, 0)
 anchor_right = Vector2(100, 0)
 max_stretch_distance = 220.0
 spring_stiffness = 220.0
-launch_force_multiplier = 5.5
+launch_force_multiplier = 4.3
 show_flight_path = true
 
 [node name="TargetCore" parent="." instance=ExtResource("4_target")]

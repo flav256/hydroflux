@@ -20,8 +20,19 @@ signal droplet_launched(droplet: Node, velocity: Vector2)
 @export_group("Elastic Physics")
 @export var spring_stiffness: float = 180.0
 @export var damping: float = 14.0
-@export var launch_force_multiplier: float = 8.5
+@export var launch_force_multiplier: float = 4.3
 @export var min_release_impulse: float = 120.0
+
+@export_group("Soft Catch")
+## Midpoint speed gained per unit of the landing drop's speed (momentum handed to the vine).
+@export var catch_give: float = 1.0
+## Cap on the speed (px/s) handed over, so a long fall cannot bottom the vine out.
+@export var catch_max_speed: float = 700.0
+## Damping used instead of `damping` while a drop is seated: lighter, so the catch
+## gives one or two soft bounces, but still settles in under a second.
+@export var seated_damping: float = 12.0
+## Seated load (px of extra sag) for a drop of radius 12; scales with sqrt(base_radius / 12).
+@export var seat_load: float = 46.0
 
 @export_group("Visuals & Glow")
 @export var tendril_color: Color = Color(0.75, 0.95, 1.0, 0.9)
@@ -41,6 +52,7 @@ var seated_drops: Array[Gloop] = []
 var seat_u: Dictionary = {}
 var seat_speed: Dictionary = {}
 var drop_is_seated: bool = false
+var drop_radius: float = 12.0  # last seen drop base_radius; used where no drop is at hand
 
 @onready var line_2d: Line2D = get_node_or_null("Line2D")
 @onready var snap_audio: AudioStreamPlayer2D = get_node_or_null("SnapAudio")
@@ -156,13 +168,18 @@ func _release_tendril() -> void:
 func _physics_process(delta: float) -> void:
 	prev_curve_points = curve_points.duplicate()
 	if not is_dragged:
-		var load := Vector2(0.0, 46.0) if drop_is_seated else Vector2.ZERO
+		var load := Vector2(0.0, seat_load * sqrt(drop_radius / 12.0)) if drop_is_seated else Vector2.ZERO
 		var target := rest_midpoint + load
 		var displacement := current_midpoint - target
 		var spring_force := -spring_stiffness * displacement
-		var damping_force := -damping * midpoint_velocity
+		var c := seated_damping if drop_is_seated else damping
+		var damping_force := -c * midpoint_velocity
 		midpoint_velocity += (spring_force + damping_force) * delta
 		current_midpoint += midpoint_velocity * delta
+		var dip := current_midpoint - rest_midpoint
+		if dip.length() > max_stretch_distance:
+			current_midpoint = rest_midpoint + dip.normalized() * max_stretch_distance
+			midpoint_velocity = Vector2.ZERO
 		if displacement.length() < 0.35 and midpoint_velocity.length() < 8.0:
 			current_midpoint = target
 			midpoint_velocity = Vector2.ZERO
@@ -281,12 +298,14 @@ func _draw_flight_dots() -> void:
 		return
 	var start := to_global(current_midpoint)
 	var mass := 0.65
+	var fall_scale := 1.45
 	if not seated_drops.is_empty() and is_instance_valid(seated_drops[0]):
 		start = seated_drops[0].global_position
 		mass = maxf(seated_drops[0].mass, 0.05)
+		fall_scale = seated_drops[0].gravity_scale
 	var impulse := -displacement.normalized() * maxf(displacement.length() * launch_force_multiplier, min_release_impulse)
 	var velocity := impulse / mass
-	var gravity_y := float(ProjectSettings.get_setting("physics/2d/default_gravity")) * 1.15
+	var gravity_y := float(ProjectSettings.get_setting("physics/2d/default_gravity")) * fall_scale
 	var gravity := Vector2(0.0, gravity_y)
 	var previous := to_local(start)
 	for i in 16:
@@ -325,11 +344,13 @@ func _support_droplets(dt: float) -> void:
 		var id := drop.get_instance_id()
 		var local := to_local(drop.global_position)
 		var closest := _closest_bezier_u(local)
+		var rscale := drop.base_radius / 12.0
+		drop_radius = drop.base_radius
 		var limit := membrane_radius + drop.base_radius
 		var already: bool = seat_u.has(id)
 		var prev := to_local(drop.previous_position)
-		var fell_through := _fell_onto_curve(prev, local)
-		if not already and not fell_through and local.distance_to(_bezier(closest)) > limit + 36.0:
+		var fell_through := _fell_onto_curve(prev, local, drop.base_radius)
+		if not already and not fell_through and local.distance_to(_bezier(closest)) > limit + 36.0 * rscale:
 			continue
 		var u := closest if not already else float(seat_u[id])
 		var tangent := _bezier(clampf(u + 0.02, 0.0, 1.0)) - _bezier(clampf(u - 0.02, 0.0, 1.0))
@@ -345,7 +366,10 @@ func _support_droplets(dt: float) -> void:
 			speed = 0.0 if falling else drop.linear_velocity.dot(tangent) * 0.25
 			impact = drop.linear_velocity.length()
 			if not is_dragged:
-				midpoint_velocity += Vector2(0.0, minf(impact, 420.0) * 0.06)
+				# Soft catch: the vine takes the drop's momentum and gives under it.
+				var v := drop.linear_velocity
+				var hand := Vector2(v.x * 0.25, maxf(v.y, 0.0)).limit_length(catch_max_speed) * catch_give
+				midpoint_velocity += hand
 		speed += gravity.dot(tangent) * drop.gravity_scale * dt
 		speed *= 0.955
 		if absf(tangent.dot(Vector2.DOWN)) < 0.06:
@@ -376,16 +400,17 @@ func _support_droplets(dt: float) -> void:
 
 func catch_point() -> Vector2:
 	var mid := _bezier(0.5)
-	return to_global(mid + _bezier_up(0.5) * (membrane_radius + 16.0))
+	return to_global(mid + _bezier_up(0.5) * (membrane_radius + drop_radius + 4.0))
 
 
-func _fell_onto_curve(prev: Vector2, curr: Vector2) -> bool:
-	var span_left := minf(anchor_left.x, anchor_right.x) - 16.0
-	var span_right := maxf(anchor_left.x, anchor_right.x) + 16.0
+func _fell_onto_curve(prev: Vector2, curr: Vector2, radius: float = 12.0) -> bool:
+	var span_left := minf(anchor_left.x, anchor_right.x) - (radius + 4.0)
+	var span_right := maxf(anchor_left.x, anchor_right.x) + (radius + 4.0)
 	if curr.x < span_left or curr.x > span_right:
 		return false
-	var above := prev.y <= _bezier(_closest_bezier_u(prev)).y + 10.0
-	var below := curr.y >= _bezier(_closest_bezier_u(curr)).y - 8.0
+	var k := radius / 12.0
+	var above := prev.y <= _bezier(_closest_bezier_u(prev)).y + 10.0 * k
+	var below := curr.y >= _bezier(_closest_bezier_u(curr)).y - 8.0 * k
 	return above and below and curr.y >= prev.y
 
 
@@ -408,7 +433,7 @@ func _drops_on_membrane() -> Array[Gloop]:
 			continue
 		var local := to_local(drop.global_position)
 		var hit: Dictionary = _closest_on_curve(local, curve_points)
-		if float(hit.dist) <= membrane_radius + drop.base_radius + 8.0:
+		if float(hit.dist) <= membrane_radius + drop.base_radius + 8.0 * drop.base_radius / 12.0:
 			found.append(drop)
 	return found
 

@@ -1,11 +1,11 @@
 """Ballistics-only check of the Chapter 1 room designs (docs/ROOMS_CH1.md).
 Sweeps every pull on each vine, finds the first thing the drop touches, and labels it.
 Nothing after landing is simulated except ceiling drips and wall-glide drop-offs (straight falls)."""
-import numpy as np, math, sys
+import numpy as np, math, sys, os
 
-G = 550.0 * 1.15; DT = 1 / 60; SUB = 6; R = 12.0; WELL_R = 48.0
+G = 550.0 * float(os.environ.get('HF_GS', 1.45)); DT = 1 / 60; SUB = 6; R = 12.0; WELL_R = 48.0
 DECAY = math.exp(-0.22 * DT) * (1 - 0.08 * DT)
-MAXS, MULT, MASS, MINIMP, SAG, SEAT = 220.0, 5.5, 0.65, 120.0, 26.0, 26.0
+MAXS, MULT, MASS, MINIMP, SAG, SEAT = 220.0, float(os.environ.get('HF_MULT', 4.3)), 0.65, 120.0, 26.0, 26.0
 
 
 def launch(mid, pull):

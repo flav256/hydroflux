@@ -16,7 +16,7 @@ shape = SubResource("CircleShape_target_area")
 
 [node name="CoreGlowLight" type="PointLight2D" parent="."]
 color = Color(0.0235294, 0.713726, 0.831373, 1)
-energy = 0.7
+energy = 0.45
 texture = ExtResource("2_light")
 texture_scale = 2.2
 shadow_enabled = true

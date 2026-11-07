@@ -26,6 +26,19 @@ A Python sweep, ballistics only: `python3 tools/room_check/ch1_check.py` (add `2
 
 **Physics.** Gravity 632.5 px/s². Each 1/60 s step, velocity is multiplied by `exp(−0.22·dt)·(1−0.08·dt)`. Radius 12. Contact with a well counts at 48 + 12 px from its center.
 
+**Retuned on 2026-11-07.** Gravity is now ×1.45 (797.5 px/s², was ×1.15), the launch multiplier is 4.3 (was 5.5), so a full pull flies at about 1455 px/s instead of 1860, and Gloop's radius is 24. The sweep's defaults match. Pulls, velocities and shares in the room sections below are from the old tuning: re-run the sweep for current ones. Current shares at radius 24:
+
+| Room | 1 | 2 | 3 | 4 (vine 1 / 2) | 5 | 6 | 7 | 8 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Share | 4.7% | 1.8% | 0.2% | 2.7% / 4.5% | 2.6% | 0.6% | 1.8% | 3.6% |
+| Window, stretch | 125–220 | 130–220 | 175–220 | 125–220 / 105–220 | 125–195 | 70–90 | 130–180 | 140–220 |
+
+Room 3 is now the narrowest by far: heavier gravity costs it reach. Widen its gap (lower the wall top to y 340) when it is greyboxed. Room 1's pick is now pull (−145, 54), the probe's default.
+
+Wall glide is now about 70–90 px/s on a vertical face (was 21–30), and a roof cling drips about 1.4 s after impact (was about 3 s). Neither changes where a film falls from.
+
+**Films keep momentum (same day).** A landing drop now keeps 70% of its speed along the surface, accelerates under gravity against a viscous drag (about 120 px/s on a wall when spread, faster as a bead), stops on floors flatter than 20°, and leaves a free edge at the speed it was sliding. The sweep still models drips and glide drop-offs as straight falls at (0, 90), so every **[after landing]** step is now less reliable, and its first contacts are off too: in Level 0, pull (−70, 110) lands at about (960, 599) in the game against (908, 596) in the model. Calibrate the sweep against `LightProbe --trace` output (`godot --headless --path . --fixed-fps 60 --quit-after 900 res://scenes/dev/LightProbe.tscn -- --pull=x,y --trace`) before trusting it for step 3.
+
 **Grid.** For each vine, 5,074 pulls: angles from 2° to 178° in steps of 1.5°, stretch from 10 to 220 px in steps of 5.
 
 **What's recorded.** The first contact, with its normal speed. Roof drips and falls off a free edge are simulated as straight drops from (0, 90).

@@ -9,7 +9,7 @@ signal detached()
 
 @export var droplet_color: Color = Color(0.02, 0.71, 0.83, 1.0)
 @export var core_color: Color = Color(1.0, 1.0, 1.0, 0.95)
-@export var base_radius: float = 12.0
+@export var base_radius: float = 24.0
 @export var max_velocity_stretch: float = 1.8
 @export var form_duration: float = 0.85
 @export var light_energy: float = 1.4
@@ -20,9 +20,13 @@ signal detached()
 @export var split_impact_threshold: float = 520.0
 @export var spread_duration: float = 0.24
 @export var surface_reform_rate: float = 0.52
-@export var ceiling_hold_duration: float = 1.0
-@export var ceiling_reform_rate: float = 0.52
-@export var max_wall_glide_speed: float = 30.0
+@export var ceiling_hold_duration: float = 0.35
+@export var ceiling_reform_rate: float = 1.1
+@export var impact_keep: float = 0.7
+@export var film_drag: float = 7.0
+@export var bead_drag: float = 3.0
+@export var ceiling_drag: float = 12.0
+@export var stiction_speed: float = 14.0
 @export var max_wall_film_radius: float = 4.5
 
 enum Mood { QUIET, IMPATIENT, TICKLED, HELD, FLIGHT, FALL }
@@ -75,6 +79,7 @@ var film_spread: float = 0.0
 var film_flat: float = 1.0
 var film_normal: Vector2 = Vector2.UP
 var film_pos: Vector2 = Vector2.ZERO
+var film_vel: Vector2 = Vector2.ZERO
 var _wet: Node = null
 
 @onready var light: PointLight2D = get_node_or_null("PointLight2D")
@@ -86,7 +91,7 @@ func _ready() -> void:
 	z_index = 6
 	contact_monitor = true
 	max_contacts_reported = 4
-	gravity_scale = 1.15
+	gravity_scale = 1.45
 	lock_rotation = true
 	var film := PhysicsMaterial.new()
 	film.friction = 0.04
@@ -204,14 +209,14 @@ func _draw() -> void:
 			continue
 		var fade := 1.0 - float(step) / float(trail.size() + 1)
 		var thread := local * 0.42
-		draw_line(thread, local, Color(droplet_color, 0.4 * fade), lerpf(1.1, 3.2, fade), true)
+		draw_line(thread, local, Color(droplet_color, 0.4 * fade), lerpf(1.1, 3.2, fade) * base_radius / 12.0, true)
 		draw_circle(local, base_radius * lerpf(0.22, 0.48, fade), Color(droplet_color, 0.34 * fade))
 	draw_circle(Vector2.ZERO, base_radius * 3.3, Color(droplet_color, 0.07))
 	draw_circle(Vector2.ZERO, base_radius * 2.1, Color(droplet_color, 0.12))
 	var sx := shape_x_now()
 	var body := PackedVector2Array()
-	for i in 28:
-		var a := TAU * float(i) / 28.0
+	for i in 40:
+		var a := TAU * float(i) / 40.0
 		var n := Vector2(cos(a), sin(a))
 		var along := n.dot(dir)
 		var side := n - dir * along
@@ -265,13 +270,13 @@ func _draw() -> void:
 		maxf(base_radius * 0.055, 0.65),
 		true
 	)
-	_draw_presence(now)
 	var glint := -dir * base_radius * 0.12 + Vector2(cos(now * 2.3), sin(now * 2.9)) * base_radius * 0.18
 	draw_circle(glint, base_radius * 0.36, Color(0.9, 1.0, 1.0, 0.92))
 	draw_circle(glint * 0.35, base_radius * 0.13, core_color)
+	_draw_presence(now)
 	for i in bead_pos.size():
 		var fade := clampf(bead_life[i] / 0.35, 0.0, 1.0)
-		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.4, fade), Color(droplet_color, 0.85 * fade))
+		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.4, fade) * base_radius / 12.0, Color(droplet_color, 0.85 * fade))
 
 
 func apply_launch_impulse(impulse: Vector2) -> void:
@@ -414,7 +419,7 @@ func _draw_presence(now: float) -> void:
 			open = phase / 0.14
 		elif phase > 3.15:
 			open = (3.6 - phase) / 0.45
-	var gap := base_radius * 0.38
+	var gap := base_radius * 0.35
 	var eye_axis := Vector2.RIGHT
 	var eye_angle := 0.0
 	if mood == Mood.FLIGHT:
@@ -422,30 +427,30 @@ func _draw_presence(now: float) -> void:
 		if travel.length_squared() > 0.1:
 			eye_axis = Vector2(-travel.y, travel.x)
 			eye_angle = travel.angle() + PI * 0.5
-			gap = base_radius * 0.28
+			gap = base_radius * 0.26
 	elif mood == Mood.FALL:
-		gap = base_radius * 0.42
+		gap = base_radius * 0.39
 	if mood == Mood.HELD:
-		gap = base_radius * 0.26
+		gap = base_radius * 0.24
 	elif mood == Mood.IMPATIENT:
-		gap = base_radius * 0.44
+		gap = base_radius * 0.40
 	var origin := slosh * 1.2 + Vector2(0.0, base_radius * 0.1)
 	var tilt := sin(now * 0.4) * 0.55 if mood == Mood.IMPATIENT else 0.0
 	var ink := Color(0.012, 0.03, 0.045, 0.95 * presence)
 	for side in [-1.0, 1.0]:
-		var pos: Vector2 = origin + eye_axis * (side * gap) + Vector2(0.0, tilt * side) + gaze * 0.12
+		var pos: Vector2 = origin + eye_axis * (side * gap) + Vector2(0.0, tilt * side * 2.0) + gaze * 0.3
 		if mood == Mood.TICKLED:
-			draw_arc(pos + Vector2(0.0, 0.45), 1.9, PI + 0.5, TAU - 0.5, 7, ink, 1.05, true)
+			draw_arc(pos + Vector2(0.0, 1.0), 4.2, PI + 0.5, TAU - 0.5, 9, ink, 2.2, true)
 		else:
-			var ry := maxf(1.55 * open, 0.14)
-			var rx := 1.55
+			var ry := maxf(4.7 * open, 0.3)
+			var rx := 3.6
 			if mood == Mood.FLIGHT:
-				rx = 1.15
-				ry = maxf(1.8 * open, 0.14)
+				rx = 3.3
+				ry = maxf(5.0 * open, 0.3)
 			_eye_disk(pos, rx, ry, ink, eye_angle)
 			if open > 0.4:
-				var pupil := gaze.limit_length(0.55)
-				_eye_disk(pos + Vector2(pupil.x * 0.45, pupil.y * 0.25), 0.55, maxf(0.5 * open, 0.14), Color(0, 0, 0, presence), eye_angle)
+				var pupil := gaze.limit_length(1.0)
+				_eye_disk(pos + Vector2(pupil.x * 1.3, pupil.y * 0.9), 1.7, maxf(1.7 * open, 0.3), Color(0, 0, 0, presence), eye_angle)
 
 
 func _eye_disk(center: Vector2, rx: float, ry: float, color: Color, angle: float = 0.0) -> void:
@@ -554,6 +559,8 @@ func begin_film(normal: Vector2, impact: float) -> void:
 	film_normal = normal.normalized()
 	film_flat = clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
 	film_pos = global_position
+	var along := velocity_before_contact - film_normal * velocity_before_contact.dot(film_normal)
+	film_vel = along * impact_keep
 	freeze = true
 	collision_layer = 0
 	collision_mask = 0
@@ -572,14 +579,14 @@ func flow_on_surface(delta: float) -> void:
 	var flat := clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
 	film_flat = flat
 	var spill := 1.0 - flat
-	var down := Vector2.ZERO
-	if tangent.length() > 6.0:
-		down = tangent.normalized()
-	var flow := tangent.length() * lerpf(0.015, 0.065, spill)
-	flow = minf(flow, lerpf(10.0, max_wall_glide_speed, spill))
-	flow *= lerpf(0.45, 1.0, 1.0 - film_spread * 0.45)
 	var gather := lerpf(0.16, 1.55, flat) * lerpf(0.75, 1.7, 1.0 - film_spread)
 	var is_ceiling := film_normal.dot(Vector2.DOWN) > 0.82
+	# Momentum: gravity along the face accelerates the film, drag (stronger when gathered
+	# into a bead the opposite way: bead runs faster) bleeds it. Ceilings cling hard.
+	var drag := lerpf(bead_drag, film_drag, film_spread)
+	if is_ceiling:
+		drag = maxf(drag, ceiling_drag)
+	film_vel += (tangent - drag * film_vel) * delta
 	if moment_t < spread_duration:
 		film_spread = move_toward(film_spread, 1.0, delta / maxf(spread_duration, 0.01))
 	elif is_ceiling and moment_t < spread_duration + ceiling_hold_duration:
@@ -594,8 +601,8 @@ func flow_on_surface(delta: float) -> void:
 	if space == null:
 		_leave_surface(true)
 		return
-	var origin := film_pos + down * flow * delta
-	var query := PhysicsRayQueryParameters2D.create(origin + film_normal * 28.0, origin - film_normal * 48.0)
+	var origin := film_pos + film_vel * delta
+	var query := PhysicsRayQueryParameters2D.create(origin + film_normal * base_radius * (28.0 / 12.0), origin - film_normal * base_radius * (48.0 / 12.0))
 	query.collision_mask = 1
 	query.exclude = [get_rid()]
 	var hit := space.intersect_ray(query)
@@ -606,6 +613,14 @@ func flow_on_surface(delta: float) -> void:
 	if found.dot(film_normal) < 0.0:
 		found = -found
 	film_normal = found.normalized()
+	# Follow the curve: keep the speed, turn it onto the new tangent.
+	var speed_along := film_vel.length()
+	var turned := film_vel - film_normal * film_vel.dot(film_normal)
+	film_vel = turned.normalized() * speed_along if turned.length_squared() > 0.000001 else Vector2.ZERO
+	flat = clampf(absf(film_normal.dot(Vector2.UP)), 0.0, 1.0)
+	film_flat = flat
+	if flat > 0.94 and film_vel.length() < stiction_speed:
+		film_vel = Vector2.ZERO
 	var hug := lerpf(base_radius * 0.42, base_radius, 1.0 - film_spread)
 	film_pos = hit.position + film_normal * hug
 	var wet_span := lerpf(base_radius, base_radius * lerpf(max_wall_film_radius, 6.6, film_flat), film_spread) * 2.0
@@ -627,8 +642,13 @@ func _leave_surface(falling: bool) -> void:
 	collision_mask = 13
 	stone_grace = 0.45
 	glide_normal = Vector2.ZERO
-	global_position = film_pos + film_normal * 6.0
-	linear_velocity = Vector2(0.0, 90.0) if falling else Vector2.ZERO
+	global_position = film_pos + film_normal * base_radius * 0.5
+	# Small push off the face: full 40 px/s from a near-still film (roof drip), fading to 5% of
+	# the film's speed when it leaves a fast slide, so the hand-off stays continuous.
+	var carried := film_vel.length()
+	var push := lerpf(40.0, carried * 0.05, smoothstep(40.0, 120.0, carried))
+	linear_velocity = film_vel + (film_normal * push if falling else Vector2.ZERO)
+	film_vel = Vector2.ZERO
 	film_spread = 0.0
 
 
@@ -673,7 +693,7 @@ func _draw_film() -> void:
 	draw_polyline(sheen, Color(0.98, 1.0, 1.0, 0.5), maxf(base_radius * 0.045, 0.55), true)
 	for i in bead_pos.size():
 		var fade := clampf(bead_life[i] / 0.7, 0.0, 1.0)
-		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.6, fade), Color(droplet_color, 0.8 * fade))
+		draw_circle(to_local(bead_pos[i]), lerpf(1.2, 3.6, fade) * base_radius / 12.0, Color(droplet_color, 0.8 * fade))
 
 
 func _splash_on(normal: Vector2, speed: float) -> void:
